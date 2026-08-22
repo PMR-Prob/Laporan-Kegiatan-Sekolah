@@ -11,7 +11,6 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/docx@9.7.1/build/index.umd.js"></script>
 
 <style>
 :root{--p:#0f766e;--p2:#115e59;--bg:#f1f5f9;--card:#fff;--text:#17202a;--muted:#64748b;--line:#dbe3e8;--red:#dc2626;--amber:#d97706}
@@ -122,11 +121,11 @@ table{width:100%;border-collapse:collapse}th,td{border:1px solid var(--line);pad
   <section id="listTab" class="tabPage hidden">
     <div class="card">
       <h2>📋 Daftar Laporan</h2>
-      <div class="row"><input id="search" placeholder="Cari kegiatan/sekolah/penanggung jawab..."><select id="filterSchool"><option value="">🏫 Semua Sekolah</option></select></div>
+      <div class="row"><input id="search" placeholder="Cari kegiatan/sekolah/materi/penanggung jawab..."><select id="filterSchool"><option value="">🏫 Semua Sekolah</option></select></div>
       <div class="row"><select id="filterStatus"><option value="">Semua status</option><option value="draft">Draft</option><option value="final">Final</option></select><div class="hint" style="display:flex;align-items:center;padding:0 4px">Pilih sekolah untuk menampilkan laporan sekolah tersebut saja. Daftar otomatis diurutkan berdasarkan sekolah lalu tanggal terbaru.</div></div>
       <div class="actions"><button id="refreshList">🔄 Muat Ulang</button><button id="exportAll" class="gray">📊 Export Daftar CSV</button></div>
       <div class="bulk-bar"><span id="selectedCount" class="bulk-count">0 laporan dipilih</span><button id="selectAllReports" class="light">☑️ Pilih Semua</button><button id="clearSelectedReports" class="gray">✖️ Hapus Pilihan</button><button id="exportSelectedWord">📄 Word Terpilih</button><button id="exportSelectedPdf">📕 PDF Terpilih</button></div>
-      <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th class="select-cell"><input id="selectAllTop" type="checkbox" title="Pilih semua"></th><th>No</th><th>Sekolah</th><th>Kegiatan</th><th>Penanggung Jawab</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="reportRows"></tbody></table></div>
+      <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th class="select-cell"><input id="selectAllTop" type="checkbox" title="Pilih semua"></th><th>No</th><th>Sekolah</th><th>Kegiatan</th><th>Materi</th><th>Penanggung Jawab</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="reportRows"></tbody></table></div>
     </div>
   </section>
 
@@ -171,49 +170,43 @@ function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt
 function data(){
  return {schoolName:$('schoolName').value.trim(),activityName:$('activityName').value.trim(),activityMaterial:$('activityMaterial').value.trim(),personInCharge:$('personInCharge').value.trim(),activityDate:$('activityDate').value,place:$('place').value.trim(),startTime:$('startTime').value,endTime:$('endTime').value,background:$('background').value,objective:$('objective').value,flow:$('flow').value,material:$('material').value,evaluation:$('evaluation').value,closing:$('closing').value,lat:$('lat').value,lng:$('lng').value,address:$('address').value.trim()}
 }
-function dateID(v){
-  if(!v)return '-';
-  const d=new Date(v+'T00:00:00');
-  if(Number.isNaN(d.getTime()))return v;
-  return d.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
-}
-function timeID(d){
-  const a=d?.startTime||'',b=d?.endTime||'';
-  if(a&&b)return a+' - '+b;
-  return a||b||'-';
-}
 function setData(d={}){
-  const ids=['schoolName','activityName','activityMaterial','personInCharge','activityDate','place','startTime','endTime','background','objective','flow','material','evaluation','closing','lat','lng','address'];
-  ids.forEach(id=>{if($(id))$(id).value=d[id]??''});
-  if(map && d.lat && d.lng){
-    const lat=Number(d.lat),lng=Number(d.lng);
-    if(Number.isFinite(lat)&&Number.isFinite(lng))setMarker(lat,lng,d.address||'');
-  }
+ ['schoolName','activityName','activityMaterial','personInCharge','activityDate','place','startTime','endTime','background','objective','flow','material','evaluation','closing','lat','lng','address'].forEach(k=>{if($(k))$(k).value=d[k]||''});
+ if(d.lat&&d.lng)setMarker(+d.lat,+d.lng,d.address||'');
+}
+function dateID(v){if(!v)return '-';return new Date(v+'T00:00:00').toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})}
+function timeID(d){return d.startTime||d.endTime?`${d.startTime||'--:--'} - ${d.endTime||'--:--'} WIB`:'-'}
+async function compress(file,max=1400,targetKB=120){
+ return new Promise((resolve,reject)=>{
+  const r=new FileReader();
+  r.onerror=()=>reject(new Error('Foto tidak dapat dibaca.'));
+  r.onload=e=>{
+   const im=new Image();
+   im.onerror=()=>reject(new Error('Format foto tidak didukung.'));
+   im.onload=()=>{
+    let w=im.width,h=im.height;
+    if(w>max){h=Math.round(h*max/w);w=max;}
+    const c=document.createElement('canvas');c.width=w;c.height=h;
+    const ctx=c.getContext('2d',{alpha:false});ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(im,0,0,w,h);
+    let quality=.72,data='';
+    for(let i=0;i<8;i++){
+     data=c.toDataURL('image/jpeg',quality);const kb=(data.length*.75)/1024;
+     if(kb<=targetKB)break;
+     if(quality>.45)quality-=.05;
+     else {w=Math.max(640,Math.round(w*.85));h=Math.round(h*(w/c.width));c.width=w;c.height=h;ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(im,0,0,w,h);}
+    }
+    const finalKB=(data.length*.75)/1024;
+    if(finalKB>targetKB){reject(new Error('Foto terlalu besar setelah kompresi. Pilih foto lain.'));return;}
+    resolve({data,caption:file.name.replace(/\.[^.]+$/,''),sizeKB:Math.round(finalKB)});
+   };im.src=e.target.result;
+  };r.readAsDataURL(file);
+ });
 }
 function renderPhotos(){
-  const box=$('photoList');
-  if(!box)return;
-  if(!photos.length){box.innerHTML='<div class="muted">Belum ada foto.</div>';return}
-  box.innerHTML=photos.map((p,i)=>`<div class="photo"><img src="${p.data}" alt="Dokumentasi ${i+1}"><input value="${esc(p.caption||'')}" placeholder="Keterangan foto"><div class="actions"><button type="button" class="gray" data-photo-del="${i}">Hapus</button></div></div>`).join('');
-  box.querySelectorAll('[data-photo-del]').forEach(b=>b.onclick=()=>{photos.splice(Number(b.dataset.photoDel),1);renderPhotos();preview()});
-  box.querySelectorAll('input').forEach((el,i)=>el.oninput=()=>{if(photos[i])photos[i].caption=el.value;preview()});
+ $('photoList').innerHTML=photos.length?photos.map((p,i)=>`<div class="photo"><img src="${p.data}"><input value="${esc(p.caption||'')}" data-cap="${i}" placeholder="Keterangan"><button class="red" data-del="${i}" style="margin-top:7px">Hapus</button></div>`).join(''):'<div class="muted">Belum ada foto.</div>';
+ document.querySelectorAll('[data-cap]').forEach(e=>e.oninput=()=>photos[+e.dataset.cap].caption=e.value);
+ document.querySelectorAll('[data-del]').forEach(e=>e.onclick=()=>{photos.splice(+e.dataset.del,1);renderPhotos();preview()});
 }
-async function compress(file){
-  const maxW=1400,maxH=1400,targetKB=120;
-  const bitmap=await createImageBitmap(file);
-  const ratio=Math.min(1,maxW/bitmap.width,maxH/bitmap.height);
-  const canvas=document.createElement('canvas');
-  canvas.width=Math.max(1,Math.round(bitmap.width*ratio));
-  canvas.height=Math.max(1,Math.round(bitmap.height*ratio));
-  const ctx=canvas.getContext('2d');
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
-  bitmap.close?.();
-  let quality=.82,dataUrl=canvas.toDataURL('image/jpeg',quality);
-  while(dataUrl.length/1024>targetKB && quality>.45){quality-=.06;dataUrl=canvas.toDataURL('image/jpeg',quality)}
-  return {data:dataUrl,caption:'Dokumentasi',sizeKB:Math.round(dataUrl.length/1024)};
-}
-
 $('photos').onchange=async e=>{
   const files=[...e.target.files];
   if(photos.length+files.length>3){
@@ -272,7 +265,7 @@ function preview(){
  $('report').innerHTML=`<h1>LAPORAN KEGIATAN</h1><div class="school">${esc(d.schoolName||'NAMA SEKOLAH')}</div><div class="hint" style="text-align:center;margin-top:5px">Penanggung Jawab: <b>${esc(d.personInCharge||'Fasilitator PMR')}</b></div><div class="line"></div><h2>A. Identitas Kegiatan</h2><table><tr><td>Nama Kegiatan</td><td>${esc(d.activityName||'-')}</td></tr><tr><td>Materi</td><td>${esc(d.activityMaterial||'-')}</td></tr><tr><td>Tanggal</td><td>${esc(dateID(d.activityDate))}</td></tr><tr><td>Waktu</td><td>${esc(timeID(d))}</td></tr><tr><td>Tempat</td><td>${esc(d.place||'-')}</td></tr><tr><td>Penanggung Jawab</td><td>${esc(d.personInCharge||'-')}</td></tr></table>
  <h2>B. Latar Belakang</h2><p>${esc(d.background||'-')}</p><h2>C. Tujuan Kegiatan</h2><p>${esc(d.objective||'-')}</p><h2>D. Alur Kegiatan</h2><p>${esc(d.flow||'-')}</p><h2>E. Materi Kegiatan</h2><p>${esc(d.material||'-')}</p><h2>F. Hasil dan Evaluasi</h2><p>${esc(d.evaluation||'-')}</p><h2>G. Dokumentasi</h2>${docs}
  <h2>Lokasi Kegiatan</h2><p>📍 ${esc(d.address||d.place||'-')}<br>Koordinat: ${esc(d.lat||'-')}, ${esc(d.lng||'-')}</p>
- <h2>H. Penutup</h2><p>${esc(d.closing||'-')}</p><div class="sig">${esc(d.place||'................')}, ${esc(dateID(d.activityDate))}<br><br>${esc('Pembuat Laporan')}<div class="sigspace"></div><b><u>Fasilitator PMR</u></b></div>`;
+ <h2>H. Penutup</h2><p>${esc(d.closing||'-')}</p><div class="sig">${esc(d.place||'................')}, ${esc(dateID(d.activityDate))}<br><br>Fasilitator PMR<div class="sigspace"></div><b><u>Fasilitator PMR</u></b></div>`;
 }
 let firebaseReady=null;
 async function loadFirebase(){
@@ -439,7 +432,7 @@ async function loadList(){
     const fs=($('filterStatus')?.value||'');
     const fschool=($('filterSchool')?.value||'').trim().toLowerCase();
     let arr=allArr.filter(x=>
-      (!q||`${x.activityName||''} ${x.schoolName||''} ${x.personInCharge||''}`.toLowerCase().includes(q)) &&
+      (!q||`${x.activityName||''} ${x.schoolName||''} ${x.activityMaterial||''} ${x.material||''} ${x.personInCharge||''}`.toLowerCase().includes(q)) &&
       (!fs||x.status===fs) &&
       (!fschool||String(x.schoolName||'').trim().toLowerCase()===fschool)
     );
@@ -456,6 +449,7 @@ async function loadList(){
         <td>${i+1}</td>
         <td><b>${esc(x.schoolName||'-')}</b></td>
         <td>${esc(x.activityName||'-')}</td>
+        <td>${esc(x.activityMaterial||x.material||'-')}</td>
         <td>${esc(x.personInCharge||'-')}</td>
         <td>${esc(dateID(x.activityDate))}</td>
         <td><span class="badge green">${esc(x.status||'final')}</span></td>
@@ -464,7 +458,7 @@ async function loadList(){
           ${currentRole==='admin'?`<button class="small red" data-delete-list="${esc(x.id)}">Hapus</button>`:''}
         </td>
       </tr>`).join('')
-      :'<tr><td colspan="8">Belum ada laporan yang sesuai dengan pilihan sekolah/pencarian.</td></tr>';
+      :'<tr><td colspan="9">Belum ada laporan yang sesuai dengan pilihan sekolah/pencarian.</td></tr>';
 
     document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openReport(b.dataset.open));
     document.querySelectorAll('[data-delete-list]').forEach(b=>b.onclick=()=>deleteReport(b.dataset.deleteList));
@@ -595,28 +589,27 @@ async function pdf(){
 async function ensureDocx(){
   if(window.docx&&window.docx.Document&&window.docx.Packer)return window.docx;
   const urls=[
-    'https://cdn.jsdelivr.net/npm/docx@9.7.1/build/index.umd.js',
-    'https://unpkg.com/docx@9.7.1/build/index.umd.js',
-    'https://cdn.jsdelivr.net/npm/docx@9.5.1/build/index.umd.js',
-    'https://unpkg.com/docx@9.5.1/build/index.umd.js'
+    'https://cdn.jsdelivr.net/npm/docx@9.7.1/dist/index.iife.js',
+    'https://unpkg.com/docx@9.7.1/dist/index.iife.js',
+    'https://cdn.jsdelivr.net/npm/docx@9.5.3/dist/index.iife.js',
+    'https://unpkg.com/docx@9.5.3/dist/index.iife.js'
   ];
-  for(const src of urls){
+  let lastError=null;
+  for(const base of urls){
+    const src=base+'?v=20260823';
     try{
       await new Promise((resolve,reject)=>{
-        const old=document.querySelector(`script[data-docx-loader="${src}"]`);
-        if(old){
-          if(window.docx&&window.docx.Document&&window.docx.Packer){resolve();return;}
-          old.addEventListener('load',resolve,{once:true});old.addEventListener('error',reject,{once:true});return;
-        }
         const sc=document.createElement('script');
-        sc.src=src;sc.async=false;sc.crossOrigin='anonymous';sc.dataset.docxLoader=src;
-        sc.onload=()=>resolve();sc.onerror=()=>reject(new Error('Gagal memuat '+src));
+        sc.src=src;sc.async=true;
+        const timer=setTimeout(()=>{sc.remove();reject(new Error('Waktu tunggu library Word habis.'));},15000);
+        sc.onload=()=>{clearTimeout(timer);resolve()};
+        sc.onerror=()=>{clearTimeout(timer);sc.remove();reject(new Error('Gagal memuat library Word dari CDN.'))};
         document.head.appendChild(sc);
       });
       if(window.docx&&window.docx.Document&&window.docx.Packer)return window.docx;
-    }catch(e){console.warn('Gagal memuat Word library dari',src,e)}
+    }catch(e){lastError=e;console.warn('Word CDN gagal:',src,e)}
   }
-  throw new Error('Library Word tidak berhasil dimuat. Pastikan internet aktif, lalu Muat Ulang halaman.');
+  throw new Error('Library Word tidak berhasil dimuat. Pastikan internet aktif lalu coba lagi. Jika CDN pertama gagal, sistem sudah mencoba beberapa sumber Word.');
 }
 async function dataUrlToBytes(dataUrl){
   const res=await fetch(dataUrl);
@@ -673,15 +666,11 @@ async function reportToWordChildren(d,index){
 }
 async function downloadBlob(blob,filename){
   if(!blob||blob.size===0)throw new Error('File Word kosong.');
-  const arrayBuffer=await blob.arrayBuffer();
-  const docxBlob=new Blob([arrayBuffer],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
-  let safe=String(filename||'laporan-kegiatan').replace(/[^\w.-]+/g,'_');
-  if(!/\.docx$/i.test(safe))safe+='.docx';
-  if(window.navigator?.msSaveOrOpenBlob){window.navigator.msSaveOrOpenBlob(docxBlob,safe);return}
-  const u=URL.createObjectURL(docxBlob),a=document.createElement('a');
-  a.href=u;a.download=safe;a.rel='noopener';a.style.display='none';
-  document.body.appendChild(a);
-  a.click();
+  const docxBlob=new Blob([await blob.arrayBuffer()],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  const safe=(filename||'laporan-kegiatan.docx').replace(/[^\w.-]+/g,'_');
+  const u=URL.createObjectURL(docxBlob);
+  const a=document.createElement('a');a.href=u;a.download=safe;a.rel='noopener';a.style.display='none';
+  document.body.appendChild(a);a.click();
   setTimeout(()=>{a.remove();URL.revokeObjectURL(u)},10000);
 }
 async function exportWordReports(items,filename='laporan-terpilih'){
@@ -694,9 +683,9 @@ async function exportWordReports(items,filename='laporan-terpilih'){
     const item={...items[i],photos:Array.isArray(items[i].photos)?items[i].photos:[]};
     children.push(...await reportToWordChildren(item,i));
   }
-  const doc=new Document({creator:'Sistem Laporan Kegiatan Sekolah',title:'Laporan Kegiatan',subject:'Laporan Kegiatan Sekolah',description:'Dokumen laporan kegiatan sekolah dalam format DOCX/Office Open XML',sections:[{properties:{page:{margin:{top:900,right:900,bottom:900,left:900}}},children}]});
+  const doc=new Document({creator:'Sistem Laporan Kegiatan Sekolah',title:'Laporan Kegiatan',subject:'Laporan Kegiatan Sekolah',description:'Dokumen laporan kegiatan sekolah dalam format DOCX',sections:[{properties:{page:{margin:{top:900,right:900,bottom:900,left:900}}},children}]});
   const blob=await Packer.toBlob(doc);
-  await downloadBlob(blob,filename);
+  await downloadBlob(blob,filename+'.docx');
 }
 async function word(){
   const d=data();
@@ -736,7 +725,7 @@ $('adminReload')?.addEventListener('click',async()=>{
   await loadList();
   status('Semua laporan Admin dimuat.');
 });
-$('exportAll').onclick=()=>{const rows=[['Nama Kegiatan','Sekolah','Penanggung Jawab','Tanggal','Status']];reportCache.forEach(x=>rows.push([x.activityName||'-',x.schoolName||'-',x.personInCharge||'-',dateID(x.activityDate),x.status||'final']));const csv=rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='daftar-laporan.csv';document.body.appendChild(a);a.click();a.remove()}
+$('exportAll').onclick=()=>{const rows=[['Nama Kegiatan','Sekolah','Materi','Penanggung Jawab','Tanggal','Status']];reportCache.forEach(x=>rows.push([x.activityName||'-',x.schoolName||'-',x.activityMaterial||x.material||'-',x.personInCharge||'-',dateID(x.activityDate),x.status||'final']));const csv=rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='daftar-laporan.csv';document.body.appendChild(a);a.click();a.remove()}
 
 initMap();preview();
 firebaseReady=loadFirebase();
