@@ -295,7 +295,7 @@ async function loadFirebase(){
         const profileRef=window.fbFns.doc(db,'users',u.uid);
         const profileSnap=await window.fbFns.getDoc(profileRef);
 
-        if(!profileSnap.exists()){
+        if(!profileSnap.exists){
           await window.fbFns.setDoc(profileRef,{
             email:u.email||'',
             nama:u.email?.split('@')[0]||'Pengguna',
@@ -429,7 +429,7 @@ async function loadList(){
 async function openReport(id){
   try{
     const x=await window.fbFns.getDoc(window.fbFns.doc(db,'reports',id));
-    if(!x.exists())return;
+    if(!x.exists)return;
     editingId=id;
     const d=x.data();
     setData(d);
@@ -465,7 +465,7 @@ async function saveOnline(){
     if(editingId){
       const ref=window.fbFns.doc(db,'reports',editingId);
       const snap=await window.fbFns.getDoc(ref);
-      if(!snap.exists())throw new Error('Laporan yang diedit tidak ditemukan.');
+      if(!snap.exists)throw new Error('Laporan yang diedit tidak ditemukan.');
       const old=snap.data()||{};
       if(currentRole!=='admin' && old.uid!==currentUser.uid)throw new Error('Anda tidak berhak mengubah laporan ini.');
       await window.fbFns.updateDoc(ref,payload);
