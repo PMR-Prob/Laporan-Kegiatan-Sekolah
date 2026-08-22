@@ -126,10 +126,11 @@ table{width:100%;border-collapse:collapse}th,td{border:1px solid var(--line);pad
   <section id="listTab" class="tabPage hidden">
     <div class="card">
       <h2>📋 Daftar Laporan</h2>
-      <div class="row"><input id="search" placeholder="Cari kegiatan/sekolah..."><select id="filterStatus"><option value="">Semua status</option><option value="draft">Draft</option><option value="final">Final</option></select></div>
+      <div class="row"><input id="search" placeholder="Cari kegiatan/sekolah/penanggung jawab..."><select id="filterSchool"><option value="">🏫 Semua Sekolah</option></select></div>
+      <div class="row"><select id="filterStatus"><option value="">Semua status</option><option value="draft">Draft</option><option value="final">Final</option></select><div class="hint" style="display:flex;align-items:center;padding:0 4px">Pilih sekolah untuk menampilkan laporan sekolah tersebut saja. Daftar otomatis diurutkan berdasarkan sekolah lalu tanggal terbaru.</div></div>
       <div class="actions"><button id="refreshList">🔄 Muat Ulang</button><button id="exportAll" class="gray">📊 Export Daftar CSV</button></div>
       <div class="bulk-bar"><span id="selectedCount" class="bulk-count">0 laporan dipilih</span><button id="selectAllReports" class="light">☑️ Pilih Semua</button><button id="clearSelectedReports" class="gray">✖️ Hapus Pilihan</button><button id="exportSelectedWord">📄 Word Terpilih</button><button id="exportSelectedPdf">📕 PDF Terpilih</button></div>
-      <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th class="select-cell"><input id="selectAllTop" type="checkbox" title="Pilih semua"></th><th>No</th><th>Kegiatan</th><th>Sekolah</th><th>Penanggung Jawab</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="reportRows"></tbody></table></div>
+      <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th class="select-cell"><input id="selectAllTop" type="checkbox" title="Pilih semua"></th><th>No</th><th>Sekolah</th><th>Kegiatan</th><th>Penanggung Jawab</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="reportRows"></tbody></table></div>
     </div>
   </section>
 
@@ -296,7 +297,7 @@ $('openGoogleMap').onclick=()=>{const a=+$('lat').value,b=+$('lng').value;if(Num
 function preview(){
  const d=data(), docs=photos.length?`<div class="docs">${photos.map(p=>`<div class="doc"><img src="${p.data}"><div class="caption">${esc(p.caption||'Dokumentasi')}</div></div>`).join('')}</div>`:'<div class="muted">Belum ada foto.</div>';
  const recipients=d.recipientSchools?.length?`<h2>Ditujukan Kepada</h2><p>${d.recipientSchools.map(x=>'• '+esc(x)).join('<br>')}</p>`:'';
- $('report').innerHTML=`<h1>LAPORAN KEGIATAN</h1><div class="school">${esc(d.schoolName||'NAMA SEKOLAH')}</div><div class="line"></div>${recipients}
+ $('report').innerHTML=`<h1>LAPORAN KEGIATAN</h1><div class="school">${esc(d.schoolName||'NAMA SEKOLAH')}</div><div class="hint" style="text-align:center;margin-top:5px">Penanggung Jawab: <b>${esc(d.personInCharge||'Fasilitator PMR')}</b></div><div class="line"></div>${recipients}
  <h2>A. Identitas Kegiatan</h2><table><tr><td>Nama Kegiatan</td><td>${esc(d.activityName||'-')}</td></tr><tr><td>Materi</td><td>${esc(d.activityMaterial||'-')}</td></tr><tr><td>Tanggal</td><td>${esc(dateID(d.activityDate))}</td></tr><tr><td>Waktu</td><td>${esc(timeID(d))}</td></tr><tr><td>Tempat</td><td>${esc(d.place||'-')}</td></tr><tr><td>Penanggung Jawab</td><td>${esc(d.personInCharge||'-')}</td></tr></table>
  <h2>B. Latar Belakang</h2><p>${esc(d.background||'-')}</p><h2>C. Tujuan Kegiatan</h2><p>${esc(d.objective||'-')}</p><h2>D. Alur Kegiatan</h2><p>${esc(d.flow||'-')}</p><h2>E. Materi Kegiatan</h2><p>${esc(d.material||'-')}</p><h2>F. Hasil dan Evaluasi</h2><p>${esc(d.evaluation||'-')}</p><h2>G. Dokumentasi</h2>${docs}
  <h2>Lokasi Kegiatan</h2><p>📍 ${esc(d.address||d.place||'-')}<br>Koordinat: ${esc(d.lat||'-')}, ${esc(d.lng||'-')}</p>
@@ -448,23 +449,42 @@ async function loadList(){
       );
     }
 
-    let arr=snap.docs.map(x=>({id:x.id,...x.data()}));
-    arr.sort((a,b)=>String(b.createdAt?.toMillis?.()||b.createdAt||'').localeCompare(String(a.createdAt?.toMillis?.()||a.createdAt||'')));
+    let allArr=snap.docs.map(x=>({id:x.id,...x.data()}));
+    allArr.sort((a,b)=>{
+      const sa=String(a.schoolName||'').localeCompare(String(b.schoolName||''),'id',{sensitivity:'base'});
+      if(sa!==0)return sa;
+      return String(b.activityDate||b.createdAt?.toMillis?.()||b.createdAt||'').localeCompare(String(a.activityDate||a.createdAt?.toMillis?.()||a.createdAt||''));
+    });
 
-    const q=($('search')?.value||'').toLowerCase();
-    const fs=$('filterStatus')?.value||'';
-    arr=arr.filter(x=>
-      (!q||`${x.activityName||''} ${x.schoolName||''}`.toLowerCase().includes(q)) &&
-      (!fs||x.status===fs)
+    const schoolSelect=$('filterSchool');
+    if(schoolSelect){
+      const current=schoolSelect.value||'';
+      const schools=[...new Set(allArr.map(x=>String(x.schoolName||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'id',{sensitivity:'base'}));
+      schoolSelect.innerHTML='<option value="">🏫 Semua Sekolah</option>'+schools.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+      if(schools.includes(current))schoolSelect.value=current;
+    }
+
+    const q=($('search')?.value||'').toLowerCase().trim();
+    const fs=($('filterStatus')?.value||'');
+    const fschool=($('filterSchool')?.value||'').trim().toLowerCase();
+    let arr=allArr.filter(x=>
+      (!q||`${x.activityName||''} ${x.schoolName||''} ${x.personInCharge||''}`.toLowerCase().includes(q)) &&
+      (!fs||x.status===fs) &&
+      (!fschool||String(x.schoolName||'').trim().toLowerCase()===fschool)
     );
+    arr.sort((a,b)=>{
+      const sa=String(a.schoolName||'').localeCompare(String(b.schoolName||''),'id',{sensitivity:'base'});
+      if(sa!==0)return sa;
+      return String(b.activityDate||b.createdAt?.toMillis?.()||b.createdAt||'').localeCompare(String(a.activityDate||a.createdAt?.toMillis?.()||a.createdAt||''));
+    });
 
     reportCache=arr;
     $('reportRows').innerHTML=arr.length
       ?arr.map((x,i)=>`<tr>
         <td class="select-cell"><input type="checkbox" class="report-check" data-report-id="${esc(x.id)}"></td>
         <td>${i+1}</td>
+        <td><b>${esc(x.schoolName||'-')}</b></td>
         <td>${esc(x.activityName||'-')}</td>
-        <td>${esc(x.schoolName||'-')}</td>
         <td>${esc(x.personInCharge||'-')}</td>
         <td>${esc(dateID(x.activityDate))}</td>
         <td><span class="badge green">${esc(x.status||'final')}</span></td>
@@ -473,7 +493,7 @@ async function loadList(){
           ${currentRole==='admin'?`<button class="small red" data-delete-list="${esc(x.id)}">Hapus</button>`:''}
         </td>
       </tr>`).join('')
-      :'<tr><td colspan="8">Belum ada laporan.</td></tr>';
+      :'<tr><td colspan="8">Belum ada laporan yang sesuai dengan pilihan sekolah/pencarian.</td></tr>';
 
     document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openReport(b.dataset.open));
     document.querySelectorAll('[data-delete-list]').forEach(b=>b.onclick=()=>deleteReport(b.dataset.deleteList));
@@ -495,8 +515,8 @@ async function openReport(id){
     renderPhotos();
     preview();
     $('deleteBtn').classList.toggle('hidden',currentRole!=='admin');
-    document.querySelector('[data-tab="formTab"]').click();
-    status('Laporan dibuka.');
+    document.querySelector('[data-tab="previewTab"]').click();
+    status('Laporan dibuka dalam mode review.');
   }catch(e){
     console.error(e);
     status('Gagal membuka laporan: '+e.message,true);
@@ -583,7 +603,7 @@ $('loadLocalBtn').onclick=()=>{
     status('Draft lokal dimuat.');
   }catch(e){alert('Draft lokal rusak atau tidak dapat dibaca.');}
 };
-$('refreshList').onclick=loadList;$('search').oninput=loadList;$('filterStatus').onchange=loadList;
+$('refreshList').onclick=loadList;$('search').oninput=loadList;$('filterStatus').onchange=loadList;$('filterSchool').onchange=loadList;
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tabPage').forEach(x=>x.classList.add('hidden'));b.classList.add('active');$(b.dataset.tab).classList.remove('hidden');if(b.dataset.tab==='previewTab')preview();if(b.dataset.tab==='listTab')loadList()});
 async function renderPdfFromReportData(pdf,d,ps,addPageBreak=false){
   const holder=document.createElement('div');holder.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff;z-index:-1;';
@@ -603,8 +623,28 @@ async function pdf(){
   await renderPdfFromReportData(pdf,data(),photos,false);
   pdf.save((data().activityName||'laporan-kegiatan').replace(/[^\w-]+/g,'_')+'.pdf')
 }
+async function ensureDocx(){
+  if(window.docx&&window.docx.Document&&window.docx.Packer)return window.docx;
+  const urls=[
+    'https://cdn.jsdelivr.net/npm/docx@9.5.1/build/index.umd.js',
+    'https://unpkg.com/docx@9.5.1/build/index.umd.js'
+  ];
+  for(const src of urls){
+    try{
+      await new Promise((resolve,reject)=>{
+        const old=document.querySelector(`script[data-docx-loader="${src}"]`);
+        if(old){old.addEventListener('load',resolve,{once:true});old.addEventListener('error',reject,{once:true});return;}
+        const sc=document.createElement('script');sc.src=src;sc.async=true;sc.dataset.docxLoader=src;
+        sc.onload=resolve;sc.onerror=reject;document.head.appendChild(sc);
+      });
+      if(window.docx&&window.docx.Document&&window.docx.Packer)return window.docx;
+    }catch(e){console.warn('Gagal memuat Word library dari',src,e)}
+  }
+  throw new Error('Library Word tidak berhasil dimuat. Pastikan internet aktif lalu tekan Muat Ulang.');
+}
 async function dataUrlToBytes(dataUrl){
   const res=await fetch(dataUrl);
+  if(!res.ok)throw new Error('Data foto tidak dapat dibaca.');
   return new Uint8Array(await res.arrayBuffer());
 }
 function wordTextRuns(text,bold=false){
@@ -625,10 +665,11 @@ function wordHeading(text,level=2,pageBreakBefore=false){
 async function wordPhotoParagraph(p){
   const {Paragraph,TextRun,ImageRun,AlignmentType}=window.docx;
   try{
+    if(!p?.data)throw new Error('Data foto kosong');
     const data=await dataUrlToBytes(p.data);
     return new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80},children:[new ImageRun({data,width:430,height:285}),new TextRun({text:'\n'+(p.caption||'Dokumentasi'),size:18})]});
   }catch(e){
-    console.warn('Foto Word gagal dimasukkan',e);
+    console.warn('Foto Word dilewati:',e);
     return wordParagraph('[Foto dokumentasi tidak dapat dimasukkan]',{alignment:AlignmentType.CENTER});
   }
 }
@@ -636,14 +677,15 @@ async function reportToWordChildren(d,index){
   const {Paragraph,Table,TableRow,TableCell,WidthType,AlignmentType,TextRun}=window.docx;
   const children=[];
   children.push(wordHeading('LAPORAN KEGIATAN',1,index>0));
-  children.push(new Paragraph({children:[new TextRun({text:d.schoolName||'NAMA SEKOLAH',bold:true,size:28})],alignment:AlignmentType.CENTER,spacing:{after:160}}));
+  children.push(new Paragraph({children:[new TextRun({text:d.schoolName||'NAMA SEKOLAH',bold:true,size:28})],alignment:AlignmentType.CENTER,spacing:{after:80}}));
+  children.push(new Paragraph({children:[new TextRun({text:'Penanggung Jawab: '+(d.personInCharge||'Fasilitator PMR'),bold:true,size:20})],alignment:AlignmentType.CENTER,spacing:{after:160}}));
   if(Array.isArray(d.recipientSchools)&&d.recipientSchools.length){
     children.push(wordHeading('Ditujukan Kepada',2));
     d.recipientSchools.forEach(x=>children.push(wordParagraph('• '+x,{after:50})));
   }
   children.push(wordHeading('A. IDENTITAS KEGIATAN',2));
   const rows=[
-    ['Nama Kegiatan',d.activityName||'-'],['Materi',d.activityMaterial||'-'],['Penanggung Jawab',d.personInCharge||'-'],
+    ['Sekolah',d.schoolName||'-'],['Nama Kegiatan',d.activityName||'-'],['Materi',d.activityMaterial||'-'],['Penanggung Jawab',d.personInCharge||'Fasilitator PMR'],
     ['Tanggal',dateID(d.activityDate)],['Waktu',timeID(d)],['Tempat',d.place||'-']
   ];
   children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rows.map(([a,b])=>new TableRow({children:[new TableCell({children:[wordParagraph(a,{bold:true,after:0})],width:{size:30,type:WidthType.PERCENTAGE}}),new TableCell({children:[wordParagraph(b,{after:0})],width:{size:70,type:WidthType.PERCENTAGE}})]}))}));
@@ -657,23 +699,31 @@ async function reportToWordChildren(d,index){
   children.push(new Paragraph({children:[new TextRun({text:(d.place||'................')+', '+dateID(d.activityDate)+'\n\n\nFasilitator PMR',bold:true,size:22})],alignment:AlignmentType.CENTER,spacing:{before:500}}));
   return children;
 }
+async function downloadBlob(blob,filename){
+  if(!blob)throw new Error('File Word kosong.');
+  const u=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=u;a.download=filename.replace(/[^\w.-]+/g,'_');a.style.display='none';
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{a.remove();URL.revokeObjectURL(u)},3000);
+}
 async function exportWordReports(items,filename='laporan-terpilih'){
   if(!Array.isArray(items)||!items.length){alert('Tidak ada laporan yang dipilih.');return}
-  if(!window.docx||!window.docx.Packer){throw new Error('Library Word belum siap. Pastikan koneksi internet aktif, lalu muat ulang halaman.')}
+  await ensureDocx();
   const {Document,Packer}=window.docx;
+  if(!Document||!Packer)throw new Error('Komponen Word tidak lengkap.');
   const children=[];
-  for(let i=0;i<items.length;i++) children.push(...await reportToWordChildren(items[i],i));
+  for(let i=0;i<items.length;i++){
+    const item={...items[i],photos:Array.isArray(items[i].photos)?items[i].photos:[]};
+    children.push(...await reportToWordChildren(item,i));
+  }
   const doc=new Document({sections:[{properties:{page:{margin:{top:900,right:900,bottom:900,left:900}}},children}]});
   const blob=await Packer.toBlob(doc);
-  const u=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=u;a.download=filename.replace(/[^\w-]+/g,'_')+'.docx';
-  document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(u),3000);
+  await downloadBlob(blob,filename+'.docx');
 }
 async function word(){
   const d=data();
   showLoading(true);
-  try{await exportWordReports([{...d,photos}],'laporan-kegiatan-'+(d.activityName||'laporan'));status('File Word berhasil dibuat.')}catch(e){console.error(e);alert('Word gagal: '+e.message)}finally{showLoading(false)}
+  try{await exportWordReports([{...d,photos}],'laporan-kegiatan-'+(d.activityName||'laporan'));status('File Word berhasil dibuat dan diunduh.')}catch(e){console.error(e);alert('Word gagal: '+e.message)}finally{showLoading(false)}
 }
 
 async function getSelectedReports(){
@@ -683,10 +733,10 @@ async function getSelectedReports(){
  return ids.map(id=>mapById.get(id)).filter(Boolean)
 }
 async function exportSelectedWord(){
- const items=await getSelectedReports();if(!items.length)return;showLoading(true);try{await exportWordReports(items,'laporan-terpilih-'+items.length)}catch(e){alert('Word gagal: '+e.message)}finally{showLoading(false)}
+ const items=await getSelectedReports();if(!items.length)return;showLoading(true);try{await exportWordReports(items,'laporan-terpilih-'+items.length);status(items.length+' laporan berhasil digabung ke 1 file Word.')}catch(e){console.error(e);alert('Word gagal: '+e.message)}finally{showLoading(false)}
 }
 async function exportSelectedPdf(){
- const items=await getSelectedReports();if(!items.length)return;showLoading(true);try{const {jsPDF}=window.jspdf,pdf=new jsPDF('p','mm','a4');let first=true;for(const item of items){await renderPdfFromReportData(pdf,item,Array.isArray(item.photos)?item.photos:[],!first);first=false}pdf.save('laporan-terpilih-'+items.length+'.pdf')}catch(e){alert('PDF gagal: '+e.message)}finally{showLoading(false)}
+ const items=await getSelectedReports();if(!items.length)return;showLoading(true);try{const {jsPDF}=window.jspdf,pdf=new jsPDF('p','mm','a4');let first=true;for(const item of items){await renderPdfFromReportData(pdf,item,Array.isArray(item.photos)?item.photos:[],!first);first=false}pdf.save('laporan-terpilih-'+items.length+'.pdf');status(items.length+' laporan berhasil digabung ke 1 file PDF.')}catch(e){console.error(e);alert('PDF gagal: '+e.message)}finally{showLoading(false)}
 }
 function updateSelectedCount(){const n=document.querySelectorAll('.report-check:checked').length;if($('selectedCount'))$('selectedCount').textContent=n+' laporan dipilih';if($('selectAllTop')){const all=document.querySelectorAll('.report-check');$('selectAllTop').checked=all.length>0&&n===all.length;$('selectAllTop').indeterminate=n>0&&n<all.length}}
 function selectAllReports(){document.querySelectorAll('.report-check').forEach(x=>x.checked=true);updateSelectedCount()}
