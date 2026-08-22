@@ -310,7 +310,8 @@ async function loadFirebase(){
 
         $('loginView').classList.add('hidden');
         $('app').classList.remove('hidden');
-        $('userBox').innerHTML=esc((finalProfile.nama||u.email||'Pengguna')+' • '+currentRole.toUpperCase());
+        $('userBox').innerHTML=esc((finalProfile.nama||u.email||'Pengguna')+' • '+currentRole.toUpperCase())+' <button id="logoutBtn" class="gray" style="margin-left:8px;padding:6px 9px">Keluar</button>';
+        $('logoutBtn').onclick=async()=>{try{await window.fbFns.signOut(auth)}catch(e){loginMsg('Gagal keluar: '+e.message)}};
         if($('adminIdentity')) $('adminIdentity').textContent=(u.email||'-')+' • UID: '+u.uid;
 
         document.querySelectorAll('.adminOnly').forEach(el=>{
@@ -443,6 +444,49 @@ async function openReport(id){
     status('Gagal membuka laporan: '+e.message,true);
   }
 }
+async function saveOnline(){
+  if(!currentUser||!db){status('Silakan login terlebih dahulu.',true);return}
+  const d=data();
+  if(!d.schoolName||!d.activityName||!d.activityDate){
+    status('Nama Sekolah, Nama Kegiatan, dan Tanggal wajib diisi.',true);
+    document.querySelector('[data-tab="formTab"]').click();
+    return;
+  }
+  try{
+    showLoading(true);
+    const payload={
+      ...d,
+      photos:photos.map(p=>({data:p.data,caption:p.caption||'',sizeKB:p.sizeKB||0})),
+      uid:currentUser.uid,
+      email:currentUser.email||'',
+      status:'final',
+      updatedAt:window.fbFns.serverTimestamp()
+    };
+    if(editingId){
+      const ref=window.fbFns.doc(db,'reports',editingId);
+      const snap=await window.fbFns.getDoc(ref);
+      if(!snap.exists())throw new Error('Laporan yang diedit tidak ditemukan.');
+      const old=snap.data()||{};
+      if(currentRole!=='admin' && old.uid!==currentUser.uid)throw new Error('Anda tidak berhak mengubah laporan ini.');
+      await window.fbFns.updateDoc(ref,payload);
+      status('Laporan berhasil diperbarui.');
+    }else{
+      payload.createdAt=window.fbFns.serverTimestamp();
+      const ref=await window.fbFns.addDoc(window.fbFns.collection(db,'reports'),payload);
+      editingId=ref.id;
+      $('deleteBtn').classList.toggle('hidden',currentRole!=='admin');
+      status('Laporan berhasil disimpan online.');
+    }
+    await loadList();
+    preview();
+  }catch(e){
+    console.error(e);
+    status('Gagal menyimpan laporan: '+(e.message||e),true);
+  }finally{
+    showLoading(false);
+  }
+}
+
 $('saveBtn').onclick=saveOnline;
 async function deleteReport(id){
   if(currentRole!=='admin'){
@@ -500,6 +544,15 @@ async function word(){
  const doc=new Document({sections:[{children:ch}]}),blob=await Packer.toBlob(doc),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=(d.activityName||'laporan-kegiatan').replace(/[^\w-]+/g,'_')+'.docx';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)
 }
 $('pdf').onclick=()=>pdf().catch(e=>alert('PDF gagal: '+e.message));$('word').onclick=()=>word().catch(e=>alert('Word gagal: '+e.message));$('print').onclick=()=>print();
+$('saveAdmin').onclick=()=>{
+  const email=$('adminEmail').value.trim().toLowerCase();
+  if(!email){status('Masukkan email admin.',true);return}
+  localStorage.setItem('laporanAdminEmail',email);
+  status('Email admin disimpan di perangkat ini. Role Admin tetap harus diatur pada dokumen users/{UID} di Firestore agar aman.');
+};
+const savedAdminEmail=localStorage.getItem('laporanAdminEmail')||'';
+if($('adminEmail'))$('adminEmail').value=savedAdminEmail;
+
 $('adminReload')?.addEventListener('click',async()=>{
   if(currentRole!=='admin')return;
   await loadList();
@@ -509,6 +562,7 @@ $('exportAll').onclick=()=>{const rows=[['Nama Kegiatan','Sekolah','Tanggal','St
 
 initMap();preview();
 firebaseReady=loadFirebase();
+firebaseReady.catch(e=>console.error('Firebase init error:',e));
 firebaseReady.then(ok=>{
   $('loginBtn').disabled=!ok;
   $('registerBtn').disabled=!ok;
