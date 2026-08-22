@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f766e">
+<meta name="description" content="Sistem Laporan Kegiatan Sekolah - Form, database online, dokumentasi, peta, Word dan PDF">
+<title>Sistem Laporan Kegiatan Sekolah</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@9.5.1/build/index.umd.js"></script>
+
+<style>
+:root{--p:#0f766e;--p2:#115e59;--bg:#f1f5f9;--card:#fff;--text:#17202a;--muted:#64748b;--line:#dbe3e8;--red:#dc2626;--amber:#d97706}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Arial,sans-serif;color:var(--text)}
+header{background:linear-gradient(135deg,var(--p2),var(--p));color:white;padding:20px;position:sticky;top:0;z-index:1000}
+.head{max-width:1250px;margin:auto;display:flex;justify-content:space-between;gap:15px;align-items:center}.head h1{margin:0;font-size:22px}.head small{opacity:.85}
+.container{max-width:1250px;margin:18px auto;padding:0 14px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px}.tabs button{background:#e2e8f0;color:#0f172a}.tabs button.active{background:var(--p);color:white}
+.card{background:white;border:1px solid var(--line);border-radius:15px;padding:18px;box-shadow:0 6px 20px #0f172a10;margin-bottom:15px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+h2{font-size:18px;color:var(--p2);margin:0 0 14px}h3{font-size:15px}
+label{display:block;font-weight:700;font-size:13px;margin:11px 0 6px}
+input,textarea,select{width:100%;padding:10px 11px;border:1px solid #cbd5e1;border-radius:9px;font:inherit;background:white}
+textarea{min-height:105px;resize:vertical}button{border:0;border-radius:9px;padding:10px 13px;background:var(--p);color:white;font-weight:700;cursor:pointer}button:hover{filter:brightness(.95)}button.gray{background:#475569}button.red{background:var(--red)}button.amber{background:var(--amber)}button.light{background:#e2e8f0;color:#0f172a}button:disabled{opacity:.55;cursor:not-allowed}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.hint,.muted{font-size:12px;color:var(--muted);line-height:1.5}
+.hidden{display:none!important}.badge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:700;background:#e2e8f0}.badge.green{background:#dcfce7;color:#166534}.badge.orange{background:#fef3c7;color:#92400e}
+table{width:100%;border-collapse:collapse}th,td{border:1px solid var(--line);padding:8px;text-align:left;font-size:12px}th{background:#f8fafc}
+.table-wrap{overflow:auto}.photo-list{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}.photo{border:1px solid var(--line);padding:8px;border-radius:10px}.photo img{width:100%;height:150px;object-fit:cover;border-radius:7px}
+#map{height:310px;border-radius:10px;overflow:hidden;border:1px solid var(--line);margin-top:10px}
+.report{background:#fff;max-width:794px;margin:auto;padding:48px 55px;min-height:1120px;box-shadow:0 3px 14px #0002}.report h1{text-align:center;font-size:22px;margin:0}.report .school{text-align:center;font-size:17px;font-weight:bold}.line{border-bottom:3px double #111;margin:14px 0 25px}.report h2{font-size:15px;color:#111;margin-top:22px}.report p{font-size:13px;line-height:1.65;text-align:justify;white-space:pre-wrap}.report table td:first-child{font-weight:bold;width:30%}.docs{display:grid;grid-template-columns:1fr 1fr;gap:8px}.docs img{width:100%;height:180px;object-fit:cover}.doc{border:1px solid #777;padding:5px}.caption{text-align:center;font-size:10px}.sig{margin:40px 0 0 auto;width:220px;text-align:center;font-size:12px}.sigspace{height:65px}
+.status{padding:10px;border-radius:9px;margin-bottom:12px;background:#ecfdf5;color:#065f46;font-size:13px}.status.err{background:#fef2f2;color:#991b1b}.login{max-width:430px;margin:40px auto}
+#loading{position:fixed;inset:0;background:#fff9;display:none;place-items:center;z-index:5000}.spinner{background:white;padding:20px;border-radius:12px;box-shadow:0 8px 30px #0002}
+@media(max-width:850px){.grid{grid-template-columns:1fr}.photo-list{grid-template-columns:1fr 1fr}.head{align-items:flex-start;flex-direction:column}}
+@media(max-width:520px){.row{grid-template-columns:1fr}.photo-list,.docs{grid-template-columns:1fr}.report{padding:25px 18px}}
+@media print{header,.tabs,.no-print{display:none!important}body,.container{background:white;padding:0;margin:0}.report{box-shadow:none;max-width:none}}
+#loginBtn:disabled,#registerBtn:disabled{opacity:.65;cursor:not-allowed}
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<header><div class="head"><div><h1>📘 Sistem Laporan Kegiatan Sekolah</h1><small>Database online • Login • Dokumentasi • Peta • Word • PDF • Paket Gratis</small></div><div id="userBox"></div></div></header>
+
+<div id="loading"><div class="spinner">⏳ Memproses...</div></div>
+<div class="container">
+
+<div id="loginView" class="login card">
+  <h2>🔐 Masuk Sistem</h2>
+  <p class="hint">Untuk versi online, login menggunakan akun email. Admin dapat mengelola seluruh laporan; pengguna biasa dapat membuat laporan.</p>
+  <label>Email</label><input id="email" type="email" placeholder="nama@email.com">
+  <label>Password</label><input id="password" type="password" placeholder="Minimal 6 karakter">
+  <div class="actions"><button id="loginBtn" disabled>Memuat Firebase...</button><button id="registerBtn" class="gray" disabled>Memuat Firebase...</button></div>
+  <div id="loginMsg" class="hint" style="margin-top:10px"></div>
+</div>
+
+<div id="app" class="hidden">
+  <div class="tabs no-print">
+    <button class="tab active" data-tab="formTab">📝 Form Laporan</button>
+    <button class="tab" data-tab="listTab">📋 Semua Laporan</button>
+    <button class="tab" data-tab="previewTab">👁️ Preview</button>
+    <button class="tab adminOnly hidden" data-tab="adminTab">⚙️ Admin</button>
+  </div>
+  <div id="status" class="status hidden"></div>
+
+  <section id="formTab" class="tabPage">
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h2>1. Identitas Kegiatan</h2>
+          <label>Nama Sekolah *</label><input id="schoolName" required>
+          <label>Nama Kegiatan *</label><input id="activityName" required>
+          <div class="row"><div><label>Materi</label><input id="activityMaterial"></div><div><label>Penanggung Jawab</label><input id="personInCharge"></div></div>
+          <div class="row"><div><label>Tanggal *</label><input id="activityDate" type="date"></div><div><label>Tempat</label><input id="place"></div></div>
+          <div class="row"><div><label>Jam Mulai</label><input id="startTime" type="time"></div><div><label>Jam Selesai</label><input id="endTime" type="time"></div></div>
+        </div>
+        <div class="card">
+          <h2>2. Isi Laporan</h2>
+          <label>Latar Belakang</label><textarea id="background"></textarea>
+          <label>Tujuan Kegiatan</label><textarea id="objective"></textarea>
+          <label>Alur Kegiatan</label><textarea id="flow"></textarea>
+          <label>Materi Kegiatan</label><textarea id="material"></textarea>
+          <label>Hasil dan Evaluasi</label><textarea id="evaluation"></textarea>
+          <label>Penutup</label><textarea id="closing"></textarea>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h2>3. Dokumentasi</h2>
+          <input id="photos" type="file" accept="image/*" multiple><div class="hint" style="margin-top:6px">Maksimal 3 foto. Pilih foto yang jelas; kompresi otomatis dilakukan sebelum disimpan.</div>
+          <p class="hint">Paket gratis: maksimal 3 foto/laporan. Foto dikompres otomatis (target ≤120 KB/foto) dan disimpan langsung di Firestore; Firebase Storage tidak digunakan.</p>
+          <div id="photoList" class="photo-list"></div>
+        </div>
+        <div class="card">
+          <h2>4. Lokasi Kegiatan</h2>
+          <div class="row"><div><label>Latitude</label><input id="lat" type="number" step="any"></div><div><label>Longitude</label><input id="lng" type="number" step="any"></div></div>
+          <label>Alamat/Lokasi</label><input id="address">
+          <div class="actions"><button id="locate">📍 Lokasi Saya</button><button id="showMap" class="gray">🗺️ Tampilkan</button></div>
+          <div id="map"></div>
+        </div>
+        <div class="card">
+          <h2>5. Aksi</h2>
+          <div class="actions">
+            <button id="newBtn" class="light">➕ Baru</button><button id="saveBtn">☁️ Simpan Online</button>
+            <button id="localBtn" class="gray">💾 Simpan Lokal</button><button id="loadLocalBtn" class="light">📂 Muat Draft</button><button id="deleteBtn" class="red hidden">🗑️ Hapus Laporan</button>
+          </div>
+          <p class="hint">Simpan Online menggunakan Firebase Authentication + Firestore. Firebase Storage tidak digunakan.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="listTab" class="tabPage hidden">
+    <div class="card">
+      <h2>📋 Daftar Laporan</h2>
+      <div class="row"><input id="search" placeholder="Cari kegiatan/sekolah..."><select id="filterStatus"><option value="">Semua status</option><option value="draft">Draft</option><option value="final">Final</option></select></div>
+      <div class="actions"><button id="refreshList">🔄 Muat Ulang</button><button id="exportAll" class="gray">📊 Export Daftar CSV</button></div>
+      <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>No</th><th>Kegiatan</th><th>Sekolah</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="reportRows"></tbody></table></div>
+    </div>
+  </section>
+
+  <section id="previewTab" class="tabPage hidden">
+    <div class="card no-print"><h2>👁️ Preview & Export</h2><div class="actions"><button id="word">📄 Word</button><button id="pdf">📕 PDF</button><button id="print" class="gray">🖨️ Cetak</button></div></div>
+    <div id="report" class="report"></div>
+  </section>
+
+  <section id="adminTab" class="tabPage hidden">
+    <div class="card"><h2>⚙️ Admin</h2><p class="hint">Masukkan email admin yang diizinkan. Pada Firebase, aturan Firestore/Storage tetap harus mengamankan data di server.</p>
+      <label>Email Admin</label><input id="adminEmail" placeholder="admin@sekolah.sch.id">
+      <div class="actions"><button id="saveAdmin">Simpan Pengaturan Admin</button></div>
+    </div>
+  </section>
+</div>
+</div>
+
+<script type="module">
+/* ===================== KONFIGURASI ONLINE =====================
+   1) Buat project Firebase.
+   2) Aktifkan Authentication > Email/Password.
+   3) Buat Firestore Database.
+   4) Ganti nilai FIREBASE_CONFIG di bawah dengan konfigurasi web Anda.
+   5) Versi ini sengaja tidak menggunakan Firebase Storage agar tetap fokus pada paket gratis.
+   =============================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCFItdpo4dPe53sTdYp3HfJXfaoMsjHv5w",
+  authDomain: "laporan-kegiatan-7e031.firebaseapp.com",
+  projectId: "laporan-kegiatan-7e031",
+  storageBucket: "laporan-kegiatan-7e031.firebasestorage.app",
+  messagingSenderId: "546777416184",
+  appId: "1:546777416184:web:8343191e4032d23e96160d",
+  measurementId: "G-EE3W7CPY8X"
+};
+
+let fb=null, auth=null, db=null, currentUser=null, currentRole='user', currentProfile={}, editingId=null, map=null, marker=null, photos=[];
+const $=id=>document.getElementById(id);
+const showLoading=v=>$('loading').style.display=v?'grid':'none';
+function status(t,err=false){const e=$('status');e.textContent=t;e.className='status'+(err?' err':'');e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),3500)}
+function loginMsg(t){$('loginMsg').textContent=t}
+function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function data(){
+ return {schoolName:$('schoolName').value.trim(),activityName:$('activityName').value.trim(),activityMaterial:$('activityMaterial').value.trim(),personInCharge:$('personInCharge').value.trim(),activityDate:$('activityDate').value,place:$('place').value.trim(),startTime:$('startTime').value,endTime:$('endTime').value,background:$('background').value,objective:$('objective').value,flow:$('flow').value,material:$('material').value,evaluation:$('evaluation').value,closing:$('closing').value,lat:$('lat').value,lng:$('lng').value,address:$('address').value.trim()}
+}
+function setData(d={}){
+ ['schoolName','activityName','activityMaterial','personInCharge','activityDate','place','startTime','endTime','background','objective','flow','material','evaluation','closing','lat','lng','address'].forEach(k=>{if($(k))$(k).value=d[k]||''});
+ if(d.lat&&d.lng)setMarker(+d.lat,+d.lng);
+}
+function dateID(v){if(!v)return '-';return new Date(v+'T00:00:00').toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})}
+function timeID(d){return d.startTime||d.endTime?`${d.startTime||'--:--'} - ${d.endTime||'--:--'} WIB`:'-'}
+async function compress(file,max=1400,targetKB=120){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onerror=()=>reject(new Error('Foto tidak dapat dibaca.'));
+    r.onload=e=>{
+      const im=new Image();
+      im.onerror=()=>reject(new Error('Format foto tidak didukung.'));
+      im.onload=()=>{
+        let w=im.width,h=im.height;
+        if(w>max){h=Math.round(h*max/w);w=max;}
+        const c=document.createElement('canvas');
+        c.width=w;c.height=h;
+        const ctx=c.getContext('2d',{alpha:false});
+        ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+        ctx.drawImage(im,0,0,w,h);
+
+        let quality=.72, data='';
+        for(let i=0;i<8;i++){
+          data=c.toDataURL('image/jpeg',quality);
+          const kb=(data.length*0.75)/1024;
+          if(kb<=targetKB)break;
+          if(quality>.45) quality-=.05;
+          else {w=Math.max(640,Math.round(w*.85));h=Math.round(h*(w/c.width));c.width=w;c.height=h;ctx.drawImage(im,0,0,w,h);}
+        }
+        const finalKB=(data.length*0.75)/1024;
+        if(finalKB>targetKB){
+          reject(new Error('Foto terlalu besar setelah kompresi. Pilih foto lain.'));
+          return;
+        }
+        resolve({data,caption:file.name.replace(/\.[^.]+$/,''),sizeKB:Math.round(finalKB)});
+      };
+      im.src=e.target.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+function renderPhotos(){
+ $('photoList').innerHTML=photos.length?photos.map((p,i)=>`<div class="photo"><img src="${p.data}"><input value="${esc(p.caption||'')}" data-cap="${i}" placeholder="Keterangan"><button class="red" data-del="${i}" style="margin-top:7px">Hapus</button></div>`).join(''):'<div class="muted">Belum ada foto.</div>';
+ document.querySelectorAll('[data-cap]').forEach(e=>e.oninput=()=>photos[+e.dataset.cap].caption=e.value);
+ document.querySelectorAll('[data-del]').forEach(e=>e.onclick=()=>{photos.splice(+e.dataset.del,1);renderPhotos();preview()});
+}
+$('photos').onchange=async e=>{
+  const files=[...e.target.files];
+  if(photos.length+files.length>3){
+    alert('Maksimal 3 foto per laporan pada paket gratis.');
+    e.target.value='';
+    return;
+  }
+  showLoading(true);
+  try{
+    for(const f of files){
+      if(!f.type.startsWith('image/')) continue;
+      photos.push(await compress(f));
+    }
+    renderPhotos();
+    preview();
+  }catch(err){
+    alert('Foto gagal diproses: '+err.message);
+  }finally{
+    showLoading(false);
+    e.target.value='';
+  }
+}
+function initMap(){map=L.map('map').setView([-7.7,113.1],12);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);map.on('click',e=>setMarker(e.latlng.lat,e.latlng.lng))}
+function setMarker(lat,lng){$('lat').value=lat.toFixed(6);$('lng').value=lng.toFixed(6);if(marker)marker.setLatLng([lat,lng]);else marker=L.marker([lat,lng]).addTo(map);map.setView([lat,lng],16);preview()}
+$('showMap').onclick=()=>{let a=+$('lat').value,b=+$('lng').value;if(Number.isFinite(a)&&Number.isFinite(b))setMarker(a,b);else alert('Isi koordinat terlebih dahulu.')}
+$('locate').onclick=()=>navigator.geolocation?.getCurrentPosition(p=>setMarker(p.coords.latitude,p.coords.longitude),()=>alert('Lokasi tidak dapat diakses.'))
+function preview(){
+ const d=data(), docs=photos.length?`<div class="docs">${photos.map(p=>`<div class="doc"><img src="${p.data}"><div class="caption">${esc(p.caption||'Dokumentasi')}</div></div>`).join('')}</div>`:'<div class="muted">Belum ada foto.</div>';
+ $('report').innerHTML=`<h1>LAPORAN KEGIATAN</h1><div class="school">${esc(d.schoolName||'NAMA SEKOLAH')}</div><div class="line"></div>
+ <h2>A. Identitas Kegiatan</h2><table><tr><td>Nama Kegiatan</td><td>${esc(d.activityName||'-')}</td></tr><tr><td>Materi</td><td>${esc(d.activityMaterial||'-')}</td></tr><tr><td>Tanggal</td><td>${esc(dateID(d.activityDate))}</td></tr><tr><td>Waktu</td><td>${esc(timeID(d))}</td></tr><tr><td>Tempat</td><td>${esc(d.place||'-')}</td></tr><tr><td>Penanggung Jawab</td><td>${esc(d.personInCharge||'-')}</td></tr></table>
+ <h2>B. Latar Belakang</h2><p>${esc(d.background||'-')}</p><h2>C. Tujuan Kegiatan</h2><p>${esc(d.objective||'-')}</p><h2>D. Alur Kegiatan</h2><p>${esc(d.flow||'-')}</p><h2>E. Materi Kegiatan</h2><p>${esc(d.material||'-')}</p><h2>F. Hasil dan Evaluasi</h2><p>${esc(d.evaluation||'-')}</p><h2>G. Dokumentasi</h2>${docs}
+ <h2>Lokasi Kegiatan</h2><p>📍 ${esc(d.address||d.place||'-')}<br>Koordinat: ${esc(d.lat||'-')}, ${esc(d.lng||'-')}</p>
+ <h2>H. Penutup</h2><p>${esc(d.closing||'-')}</p><div class="sig">${esc(d.place||'................')}, ${esc(dateID(d.activityDate))}<br><br>${esc('Pembuat Laporan')}<div class="sigspace"></div><b><u>${esc(currentUser?.displayName||currentUser?.email||'................................')}</u></b></div>`;
+}
+let firebaseReady=null;
+async function loadFirebase(){
+  if(FIREBASE_CONFIG.apiKey.startsWith('GANTI_'))return false;
+
+  try{
+    // Wait briefly for the classic Firebase CDN scripts to become available.
+    const started=Date.now();
+    while(!window.firebase && Date.now()-started<10000){
+      await new Promise(r=>setTimeout(r,100));
+    }
+    if(!window.firebase){
+      throw new Error('Library Firebase tidak termuat. Periksa koneksi internet.');
+    }
+
+    fb=window.firebase.initializeApp(FIREBASE_CONFIG);
+    auth=window.firebase.auth();
+    db=window.firebase.firestore();
+
+    // Keep the same function names used throughout the application.
+    window.fbFns={
+      signInWithEmailAndPassword:(a,e,p)=>a.signInWithEmailAndPassword(e,p),
+      createUserWithEmailAndPassword:(a,e,p)=>a.createUserWithEmailAndPassword(e,p),
+      signOut:a=>a.signOut(),
+      collection:(d,p)=>d.collection(p),
+      addDoc:(c,data)=>c.add(data),
+      doc:(d,c,id)=>d.collection(c).doc(id),
+      getDoc:ref=>ref.get(),
+      getDocs:q=>q.get(),
+      updateDoc:(ref,data)=>ref.update(data),
+      deleteDoc:ref=>ref.delete(),
+      setDoc:(ref,data)=>ref.set(data,{merge:true}),
+      query:(ref,...constraints)=>constraints.reduce((q,c)=>c(q),ref),
+      where:(field,op,value)=>q=>q.where(field,op,value),
+      orderBy:(field,direction)=>q=>q.orderBy(field,direction),
+      serverTimestamp:()=>window.firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    auth.onAuthStateChanged(async u=>{
+      currentUser=u;
+      if(!u){
+        $('loginView').classList.remove('hidden');
+        $('app').classList.add('hidden');
+        $('userBox').textContent='';
+        return;
+      }
+
+      try{
+        const profileRef=window.fbFns.doc(db,'users',u.uid);
+        const profileSnap=await window.fbFns.getDoc(profileRef);
+
+        if(!profileSnap.exists()){
+          await window.fbFns.setDoc(profileRef,{
+            email:u.email||'',
+            nama:u.email?.split('@')[0]||'Pengguna',
+            role:'user',
+            createdAt:window.fbFns.serverTimestamp()
+          });
+        }
+
+        const finalProfile=(await window.fbFns.getDoc(profileRef)).data()||{};
+        currentRole=finalProfile.role==='admin'?'admin':'user';
+        currentProfile=finalProfile;
+
+        $('loginView').classList.add('hidden');
+        $('app').classList.remove('hidden');
+        $('userBox').innerHTML=esc((finalProfile.nama||u.email||'Pengguna')+' • '+currentRole.toUpperCase());
+        if($('adminIdentity')) $('adminIdentity').textContent=(u.email||'-')+' • UID: '+u.uid;
+
+        document.querySelectorAll('.adminOnly').forEach(el=>{
+          el.classList.toggle('hidden',currentRole!=='admin');
+        });
+        $('deleteBtn').classList.toggle('hidden',currentRole!=='admin');
+
+        await loadList();
+      }catch(e){
+        console.error(e);
+        loginMsg('Profil pengguna gagal dimuat: '+e.message);
+      }
+    });
+
+    return true;
+  }catch(e){
+    loginMsg('Firebase gagal dimuat: '+e.message);
+    console.error(e);
+    return false;
+  }
+}
+$('loginBtn').onclick=async()=>{
+  try{
+    showLoading(true);
+    await firebaseReady;
+    if(!auth||!window.fbFns)throw new Error('Firebase belum siap. Tunggu beberapa detik lalu coba lagi.');
+    await window.fbFns.signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value);
+    loginMsg('');
+  }catch(e){
+    loginMsg('Login gagal: '+e.message);
+  }finally{
+    showLoading(false);
+  }
+}
+$('registerBtn').onclick=async()=>{
+  try{
+    const email=$('email').value.trim();
+    const password=$('password').value;
+    if(!email||password.length<6){
+      loginMsg('Isi email dan password minimal 6 karakter.');
+      return;
+    }
+    showLoading(true);
+    await firebaseReady;
+    if(!auth||!window.fbFns)throw new Error('Firebase belum siap. Tunggu beberapa detik lalu coba lagi.');
+    const cred=await window.fbFns.createUserWithEmailAndPassword(auth,email,password);
+    await window.fbFns.setDoc(window.fbFns.doc(db,'users',cred.user.uid),{
+      email:email,
+      nama:email.split('@')[0],
+      role:'user',
+      createdAt:window.fbFns.serverTimestamp()
+    });
+    loginMsg('Akun berhasil dibuat. Anda masuk sebagai Pengguna.');
+  }catch(e){
+    loginMsg('Pendaftaran gagal: '+e.message);
+  }finally{
+    showLoading(false);
+  }
+}
+async function loadList(){
+  if(!currentUser||!db)return;
+  try{
+    let snap;
+    if(currentRole==='admin'){
+      snap=await window.fbFns.getDocs(
+        window.fbFns.query(
+          window.fbFns.collection(db,'reports'),
+          window.fbFns.orderBy('createdAt','desc')
+        )
+      );
+    }else{
+      snap=await window.fbFns.getDocs(
+        window.fbFns.query(
+          window.fbFns.collection(db,'reports'),
+          window.fbFns.where('uid','==',currentUser.uid)
+        )
+      );
+    }
+
+    let arr=snap.docs.map(x=>({id:x.id,...x.data()}));
+    arr.sort((a,b)=>String(b.createdAt?.toMillis?.()||b.createdAt||'').localeCompare(String(a.createdAt?.toMillis?.()||a.createdAt||'')));
+
+    const q=($('search')?.value||'').toLowerCase();
+    const fs=$('filterStatus')?.value||'';
+    arr=arr.filter(x=>
+      (!q||`${x.activityName||''} ${x.schoolName||''}`.toLowerCase().includes(q)) &&
+      (!fs||x.status===fs)
+    );
+
+    $('reportRows').innerHTML=arr.length
+      ?arr.map((x,i)=>`<tr>
+        <td>${i+1}</td>
+        <td>${esc(x.activityName||'-')}</td>
+        <td>${esc(x.schoolName||'-')}</td>
+        <td>${esc(dateID(x.activityDate))}</td>
+        <td><span class="badge green">${esc(x.status||'final')}</span></td>
+        <td>
+          <button class="small" data-open="${esc(x.id)}">Buka</button>
+          ${currentRole==='admin'?`<button class="small red" data-delete-list="${esc(x.id)}">Hapus</button>`:''}
+        </td>
+      </tr>`).join('')
+      :'<tr><td colspan="6">Belum ada laporan.</td></tr>';
+
+    document.querySelectorAll('[data-open]').forEach(b=>
+      b.onclick=()=>openReport(b.dataset.open)
+    );
+    document.querySelectorAll('[data-delete-list]').forEach(b=>
+      b.onclick=()=>deleteReport(b.dataset.deleteList)
+    );
+  }catch(e){
+    console.error(e);
+    status('Gagal memuat laporan: '+e.message,true);
+  }
+}
+async function openReport(id){
+  try{
+    const x=await window.fbFns.getDoc(window.fbFns.doc(db,'reports',id));
+    if(!x.exists())return;
+    editingId=id;
+    const d=x.data();
+    setData(d);
+    photos=Array.isArray(d.photos)?d.photos:[];
+    renderPhotos();
+    preview();
+    $('deleteBtn').classList.toggle('hidden',currentRole!=='admin');
+    document.querySelector('[data-tab="formTab"]').click();
+    status('Laporan dibuka.');
+  }catch(e){
+    console.error(e);
+    status('Gagal membuka laporan: '+e.message,true);
+  }
+}
+$('saveBtn').onclick=saveOnline;
+async function deleteReport(id){
+  if(currentRole!=='admin'){
+    alert('Hanya Admin yang dapat menghapus laporan.');
+    return;
+  }
+  if(!id||!confirm('Hapus laporan ini secara permanen?'))return;
+  try{
+    await window.fbFns.deleteDoc(window.fbFns.doc(db,'reports',id));
+    if(editingId===id)newReport();
+    await loadList();
+    status('Laporan dihapus.');
+  }catch(e){
+    console.error(e);
+    status('Gagal menghapus: '+e.message,true);
+  }
+}
+$('deleteBtn').onclick=()=>deleteReport(editingId);
+function newReport(){editingId=null;document.querySelectorAll('#formTab input,#formTab textarea').forEach(e=>{if(e.type!=='file')e.value=''});photos=[];renderPhotos();if(marker){map.removeLayer(marker);marker=null}preview();$('deleteBtn').classList.add('hidden')}
+$('newBtn').onclick=newReport;
+$('localBtn').onclick=()=>{
+  localStorage.setItem('laporanDraft',JSON.stringify({data:data(),photos}));
+  status('Draft tersimpan di perangkat.');
+};
+$('loadLocalBtn').onclick=()=>{
+  const raw=localStorage.getItem('laporanDraft');
+  if(!raw){alert('Belum ada draft lokal.');return;}
+  try{
+    const obj=JSON.parse(raw);
+    editingId=null;
+    setData(obj.data||{});
+    photos=Array.isArray(obj.photos)?obj.photos:[];
+    renderPhotos();
+    preview();
+    $('deleteBtn').classList.add('hidden');
+    status('Draft lokal dimuat.');
+  }catch(e){alert('Draft lokal rusak atau tidak dapat dibaca.');}
+};
+$('refreshList').onclick=loadList;$('search').oninput=loadList;$('filterStatus').onchange=loadList;
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tabPage').forEach(x=>x.classList.add('hidden'));b.classList.add('active');$(b.dataset.tab).classList.remove('hidden');if(b.dataset.tab==='previewTab')preview();if(b.dataset.tab==='listTab')loadList()});
+async function pdf(){
+ preview();const {jsPDF}=window.jspdf,c=await html2canvas($('report'),{scale:2,useCORS:true,backgroundColor:'#fff'}),pdf=new jsPDF('p','mm','a4'),w=210,m=8,uw=w-2*m,ppm=c.width/uw,ph=297-2*m,chunk=Math.floor(ph*ppm);let y=0,n=0;
+ while(y<c.height){const h=Math.min(chunk,c.height-y),s=document.createElement('canvas');s.width=c.width;s.height=h;s.getContext('2d').drawImage(c,0,y,c.width,h,0,0,c.width,h);if(n)pdf.addPage();pdf.addImage(s.toDataURL('image/jpeg',.94),'JPEG',m,m,uw,h/ppm);y+=h;n++}
+ pdf.save((data().activityName||'laporan-kegiatan').replace(/[^\w-]+/g,'_')+'.pdf')
+}
+async function word(){
+ if(!window.docx){alert('Library Word belum siap.');return}const d=data(),D=window.docx,{Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,AlignmentType,ImageRun}=D,ch=[];
+ const title=t=>ch.push(new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:t,bold:true,size:26})]}));title('LAPORAN KEGIATAN');title(d.schoolName||'NAMA SEKOLAH');
+ ch.push(new Paragraph(''));
+ ch.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[['Nama Kegiatan',d.activityName],['Materi',d.activityMaterial],['Tanggal',dateID(d.activityDate)],['Waktu',timeID(d)],['Tempat',d.place],['Penanggung Jawab',d.personInCharge]].map(r=>new TableRow({children:r.map((v,i)=>new TableCell({children:[new Paragraph({children:[new TextRun({text:v||'-',bold:i===0})]})]}))}))}));
+ const sec=(t,v)=>{ch.push(new Paragraph({spacing:{before:250},children:[new TextRun({text:t,bold:true,size:22})]}));ch.push(new Paragraph(v||'-'))};sec('LATAR BELAKANG',d.background);sec('TUJUAN KEGIATAN',d.objective);sec('ALUR KEGIATAN',d.flow);sec('MATERI KEGIATAN',d.material);sec('HASIL DAN EVALUASI',d.evaluation);
+ ch.push(new Paragraph({children:[new TextRun({text:'DOKUMENTASI',bold:true,size:22})]}));
+ for(const p of photos){try{const b=Uint8Array.from(atob(p.data.split(',')[1]),c=>c.charCodeAt(0));ch.push(new Paragraph({alignment:AlignmentType.CENTER,children:[new ImageRun({data:b,transformation:{width:450,height:260},type:'jpg'})]}));ch.push(new Paragraph({alignment:AlignmentType.CENTER,text:p.caption||'Dokumentasi'}))}catch{}}
+ sec('LOKASI KEGIATAN',`Alamat: ${d.address||d.place||'-'}\nKoordinat: ${d.lat||'-'}, ${d.lng||'-'}`);sec('PENUTUP',d.closing);
+ const doc=new Document({sections:[{children:ch}]}),blob=await Packer.toBlob(doc),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=(d.activityName||'laporan-kegiatan').replace(/[^\w-]+/g,'_')+'.docx';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)
+}
+$('pdf').onclick=()=>pdf().catch(e=>alert('PDF gagal: '+e.message));$('word').onclick=()=>word().catch(e=>alert('Word gagal: '+e.message));$('print').onclick=()=>print();
+$('adminReload')?.addEventListener('click',async()=>{
+  if(currentRole!=='admin')return;
+  await loadList();
+  status('Semua laporan Admin dimuat.');
+});
+$('exportAll').onclick=()=>{const rows=[['Nama Kegiatan','Sekolah','Tanggal','Status']];document.querySelectorAll('#reportRows tr').forEach(tr=>{const c=[...tr.querySelectorAll('td')];if(c.length>=5)rows.push([c[1].innerText,c[2].innerText,c[3].innerText,c[4].innerText])});const csv=rows.map(r=>r.map(v=>`"${v.replace(/"/g,'""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='daftar-laporan.csv';a.click()}
+
+initMap();preview();
+firebaseReady=loadFirebase();
+firebaseReady.then(ok=>{
+  $('loginBtn').disabled=!ok;
+  $('registerBtn').disabled=!ok;
+  $('loginBtn').textContent=ok?'Masuk':'Firebase gagal';
+  $('registerBtn').textContent=ok?'Daftar Akun':'Tidak tersedia';
+  if(!ok){
+    loginMsg('Firebase belum dapat dimuat. Periksa koneksi internet dan konfigurasi Firebase.');
+  }else{
+    loginMsg('Firebase siap. Silakan masuk.');
+  }
+});
+</script>
+<footer class="no-print" style="max-width:1250px;margin:10px auto 30px;padding:0 14px;text-align:center;color:#64748b;font-size:12px">
+      Sistem Laporan Kegiatan Sekolah • Firebase Authentication + Firestore • Tidak menggunakan Firebase Storage
+    </footer>
+</body>
+</html>
