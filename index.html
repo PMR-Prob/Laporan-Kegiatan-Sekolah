@@ -32,7 +32,7 @@ table{width:100%;border-collapse:collapse}th,td{border:1px solid var(--line);pad
 #map{height:340px;border-radius:10px;overflow:hidden;border:1px solid var(--line);margin-top:10px}
 .map-search{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}.map-results{max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:9px;margin-top:7px;background:#fff}.map-result{padding:9px 10px;border-bottom:1px solid var(--line);cursor:pointer;font-size:12px}.map-result:last-child{border-bottom:0}.map-result:hover{background:#f1f5f9}.map-tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .report{background:#fff;max-width:794px;margin:auto;padding:48px 55px;min-height:1120px;box-shadow:0 3px 14px #0002}.report h1{text-align:center;font-size:22px;margin:0}.report .school{text-align:center;font-size:17px;font-weight:bold}.line{border-bottom:3px double #111;margin:14px 0 25px}.report h2{font-size:15px;color:#111;margin-top:22px}.report p{font-size:13px;line-height:1.65;text-align:justify;white-space:pre-wrap}.report table td:first-child{font-weight:bold;width:30%}.docs{display:grid;grid-template-columns:1fr 1fr;gap:8px}.docs img{width:100%;height:180px;object-fit:cover}.doc{border:1px solid #777;padding:5px}.caption{text-align:center;font-size:10px}.sig{margin:40px 0 0 auto;width:220px;text-align:center;font-size:12px}.sigspace{height:65px}
-.select-cell{text-align:center;white-space:nowrap}.bulk-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding:10px;background:#f8fafc;border:1px solid var(--line);border-radius:10px}.bulk-count{font-size:12px;color:var(--muted);margin-right:auto}.status{padding:10px;border-radius:9px;margin-bottom:12px;background:#ecfdf5;color:#065f46;font-size:13px}.status.err{background:#fef2f2;color:#991b1b}.login{max-width:430px;margin:40px auto}
+.select-cell{text-align:center;white-space:nowrap}.bulk-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding:10px;background:#f8fafc;border:1px solid var(--line);border-radius:10px}.bulk-count{font-size:12px;color:var(--muted);margin-right:auto}.recipient-box{display:flex;gap:8px;align-items:flex-end}.recipient-box>div{flex:1}.recipient-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}.recipient-chip{display:inline-flex;align-items:center;gap:6px;background:#ecfeff;color:#155e75;border:1px solid #a5f3fc;border-radius:999px;padding:6px 9px;font-size:12px}.recipient-chip button{padding:2px 6px;border-radius:50%;background:#0e7490;color:#fff;font-size:11px}.recipient-empty{font-size:12px;color:var(--muted);padding:6px 0}.status{padding:10px;border-radius:9px;margin-bottom:12px;background:#ecfdf5;color:#065f46;font-size:13px}.status.err{background:#fef2f2;color:#991b1b}.login{max-width:430px;margin:40px auto}
 #loading{position:fixed;inset:0;background:#fff9;display:none;place-items:center;z-index:5000}.spinner{background:white;padding:20px;border-radius:12px;box-shadow:0 8px 30px #0002}
 @media(max-width:850px){.grid{grid-template-columns:1fr}.photo-list{grid-template-columns:1fr 1fr}.head{align-items:flex-start;flex-direction:column}}
 @media(max-width:520px){.row{grid-template-columns:1fr}.photo-list,.docs{grid-template-columns:1fr}.report{padding:25px 18px}}
@@ -74,6 +74,10 @@ table{width:100%;border-collapse:collapse}th,td{border:1px solid var(--line);pad
         <div class="card">
           <h2>1. Identitas Kegiatan</h2>
           <label>Nama Sekolah *</label><input id="schoolName" required>
+          <label>Sekolah Tujuan / Ditujukan Kepada</label>
+          <div class="recipient-box"><div><input id="recipientSchoolInput" placeholder="Contoh: SMP Negeri 1 Probolinggo"></div><button id="addRecipientSchool" type="button">➕ Tambah</button></div>
+          <div class="hint" style="margin-top:6px">Bisa menambahkan beberapa sekolah. Anda juga bisa menulis beberapa nama sekaligus dengan pemisah koma atau baris baru.</div>
+          <div id="recipientSchoolList" class="recipient-list"></div>
           <label>Nama Kegiatan *</label><input id="activityName" required>
           <div class="row"><div><label>Materi</label><input id="activityMaterial"></div><div><label>Penanggung Jawab</label><input id="personInCharge"></div></div>
           <div class="row"><div><label>Tanggal *</label><input id="activityDate" type="date"></div><div><label>Tempat</label><input id="place"></div></div>
@@ -125,7 +129,7 @@ table{width:100%;border-collapse:collapse}th,td{border:1px solid var(--line);pad
       <div class="row"><input id="search" placeholder="Cari kegiatan/sekolah..."><select id="filterStatus"><option value="">Semua status</option><option value="draft">Draft</option><option value="final">Final</option></select></div>
       <div class="actions"><button id="refreshList">🔄 Muat Ulang</button><button id="exportAll" class="gray">📊 Export Daftar CSV</button></div>
       <div class="bulk-bar"><span id="selectedCount" class="bulk-count">0 laporan dipilih</span><button id="selectAllReports" class="light">☑️ Pilih Semua</button><button id="clearSelectedReports" class="gray">✖️ Hapus Pilihan</button><button id="exportSelectedWord">📄 Word Terpilih</button><button id="exportSelectedPdf">📕 PDF Terpilih</button></div>
-      <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th class="select-cell"><input id="selectAllTop" type="checkbox" title="Pilih semua"></th><th>No</th><th>Kegiatan</th><th>Sekolah</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="reportRows"></tbody></table></div>
+      <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th class="select-cell"><input id="selectAllTop" type="checkbox" title="Pilih semua"></th><th>No</th><th>Kegiatan</th><th>Sekolah</th><th>Penanggung Jawab</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="reportRows"></tbody></table></div>
     </div>
   </section>
 
@@ -161,17 +165,33 @@ const FIREBASE_CONFIG = {
   measurementId: "G-EE3W7CPY8X"
 };
 
-let fb=null, auth=null, db=null, currentUser=null, currentRole='user', currentProfile={}, editingId=null, map=null, marker=null, photos=[], reportCache=[];
+let fb=null, auth=null, db=null, currentUser=null, currentRole='user', currentProfile={}, editingId=null, map=null, marker=null, photos=[], reportCache=[], recipientSchools=[];
 const $=id=>document.getElementById(id);
 const showLoading=v=>$('loading').style.display=v?'grid':'none';
 function status(t,err=false){const e=$('status');e.textContent=t;e.className='status'+(err?' err':'');e.classList.remove('hidden');setTimeout(()=>e.classList.add('hidden'),3500)}
 function loginMsg(t){$('loginMsg').textContent=t}
 function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function data(){
- return {schoolName:$('schoolName').value.trim(),activityName:$('activityName').value.trim(),activityMaterial:$('activityMaterial').value.trim(),personInCharge:$('personInCharge').value.trim(),activityDate:$('activityDate').value,place:$('place').value.trim(),startTime:$('startTime').value,endTime:$('endTime').value,background:$('background').value,objective:$('objective').value,flow:$('flow').value,material:$('material').value,evaluation:$('evaluation').value,closing:$('closing').value,lat:$('lat').value,lng:$('lng').value,address:$('address').value.trim()}
+ return {schoolName:$('schoolName').value.trim(),recipientSchools:[...recipientSchools],activityName:$('activityName').value.trim(),activityMaterial:$('activityMaterial').value.trim(),personInCharge:$('personInCharge').value.trim(),activityDate:$('activityDate').value,place:$('place').value.trim(),startTime:$('startTime').value,endTime:$('endTime').value,background:$('background').value,objective:$('objective').value,flow:$('flow').value,material:$('material').value,evaluation:$('evaluation').value,closing:$('closing').value,lat:$('lat').value,lng:$('lng').value,address:$('address').value.trim()}
+}
+function renderRecipientSchools(){
+ const box=$('recipientSchoolList');
+ if(!box)return;
+ box.innerHTML=recipientSchools.length?recipientSchools.map((name,i)=>`<span class="recipient-chip">${esc(name)} <button type="button" data-remove-recipient="${i}" title="Hapus">×</button></span>`).join(''):'<span class="recipient-empty">Belum ada sekolah tujuan. Jika dikosongkan, bagian ini tidak ditampilkan.</span>';
+ box.querySelectorAll('[data-remove-recipient]').forEach(b=>b.onclick=()=>{recipientSchools.splice(+b.dataset.removeRecipient,1);renderRecipientSchools();preview()});
+}
+function addRecipientSchools(){
+ const input=$('recipientSchoolInput');
+ const raw=(input?.value||'').trim();
+ if(!raw){status('Masukkan minimal satu nama sekolah tujuan.',true);return}
+ const names=raw.split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean);
+ names.forEach(name=>{if(!recipientSchools.some(x=>x.toLowerCase()===name.toLowerCase()))recipientSchools.push(name)});
+ input.value='';renderRecipientSchools();preview();
 }
 function setData(d={}){
  ['schoolName','activityName','activityMaterial','personInCharge','activityDate','place','startTime','endTime','background','objective','flow','material','evaluation','closing','lat','lng','address'].forEach(k=>{if($(k))$(k).value=d[k]||''});
+ recipientSchools=Array.isArray(d.recipientSchools)?d.recipientSchools.filter(Boolean).map(String):[];
+ renderRecipientSchools();
  if(d.lat&&d.lng)setMarker(+d.lat,+d.lng);
 }
 function dateID(v){if(!v)return '-';return new Date(v+'T00:00:00').toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})}
@@ -217,6 +237,9 @@ function renderPhotos(){
  document.querySelectorAll('[data-cap]').forEach(e=>e.oninput=()=>photos[+e.dataset.cap].caption=e.value);
  document.querySelectorAll('[data-del]').forEach(e=>e.onclick=()=>{photos.splice(+e.dataset.del,1);renderPhotos();preview()});
 }
+$('addRecipientSchool').onclick=addRecipientSchools;
+$('recipientSchoolInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addRecipientSchools()}});
+renderRecipientSchools();
 $('photos').onchange=async e=>{
   const files=[...e.target.files];
   if(photos.length+files.length>3){
@@ -272,7 +295,8 @@ $('mapSearchBtn').onclick=searchMap;$('mapSearch').addEventListener('keydown',e=
 $('openGoogleMap').onclick=()=>{const a=+$('lat').value,b=+$('lng').value;if(Number.isFinite(a)&&Number.isFinite(b))window.open(`https://www.google.com/maps/search/?api=1&query=${a},${b}`,'_blank');else{const q=$('address').value.trim();if(q)window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`,'_blank');else alert('Pilih lokasi terlebih dahulu.')}}
 function preview(){
  const d=data(), docs=photos.length?`<div class="docs">${photos.map(p=>`<div class="doc"><img src="${p.data}"><div class="caption">${esc(p.caption||'Dokumentasi')}</div></div>`).join('')}</div>`:'<div class="muted">Belum ada foto.</div>';
- $('report').innerHTML=`<h1>LAPORAN KEGIATAN</h1><div class="school">${esc(d.schoolName||'NAMA SEKOLAH')}</div><div class="line"></div>
+ const recipients=d.recipientSchools?.length?`<h2>Ditujukan Kepada</h2><p>${d.recipientSchools.map(x=>'• '+esc(x)).join('<br>')}</p>`:'';
+ $('report').innerHTML=`<h1>LAPORAN KEGIATAN</h1><div class="school">${esc(d.schoolName||'NAMA SEKOLAH')}</div><div class="line"></div>${recipients}
  <h2>A. Identitas Kegiatan</h2><table><tr><td>Nama Kegiatan</td><td>${esc(d.activityName||'-')}</td></tr><tr><td>Materi</td><td>${esc(d.activityMaterial||'-')}</td></tr><tr><td>Tanggal</td><td>${esc(dateID(d.activityDate))}</td></tr><tr><td>Waktu</td><td>${esc(timeID(d))}</td></tr><tr><td>Tempat</td><td>${esc(d.place||'-')}</td></tr><tr><td>Penanggung Jawab</td><td>${esc(d.personInCharge||'-')}</td></tr></table>
  <h2>B. Latar Belakang</h2><p>${esc(d.background||'-')}</p><h2>C. Tujuan Kegiatan</h2><p>${esc(d.objective||'-')}</p><h2>D. Alur Kegiatan</h2><p>${esc(d.flow||'-')}</p><h2>E. Materi Kegiatan</h2><p>${esc(d.material||'-')}</p><h2>F. Hasil dan Evaluasi</h2><p>${esc(d.evaluation||'-')}</p><h2>G. Dokumentasi</h2>${docs}
  <h2>Lokasi Kegiatan</h2><p>📍 ${esc(d.address||d.place||'-')}<br>Koordinat: ${esc(d.lat||'-')}, ${esc(d.lng||'-')}</p>
@@ -441,6 +465,7 @@ async function loadList(){
         <td>${i+1}</td>
         <td>${esc(x.activityName||'-')}</td>
         <td>${esc(x.schoolName||'-')}</td>
+        <td>${esc(x.personInCharge||'-')}</td>
         <td>${esc(dateID(x.activityDate))}</td>
         <td><span class="badge green">${esc(x.status||'final')}</span></td>
         <td>
@@ -448,7 +473,7 @@ async function loadList(){
           ${currentRole==='admin'?`<button class="small red" data-delete-list="${esc(x.id)}">Hapus</button>`:''}
         </td>
       </tr>`).join('')
-      :'<tr><td colspan="7">Belum ada laporan.</td></tr>';
+      :'<tr><td colspan="8">Belum ada laporan.</td></tr>';
 
     document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openReport(b.dataset.open));
     document.querySelectorAll('[data-delete-list]').forEach(b=>b.onclick=()=>deleteReport(b.dataset.deleteList));
@@ -538,7 +563,7 @@ async function deleteReport(id){
   }
 }
 $('deleteBtn').onclick=()=>deleteReport(editingId);
-function newReport(){editingId=null;document.querySelectorAll('#formTab input,#formTab textarea').forEach(e=>{if(e.type!=='file')e.value=''});photos=[];renderPhotos();if(marker){map.removeLayer(marker);marker=null}preview();$('deleteBtn').classList.add('hidden')}
+function newReport(){editingId=null;document.querySelectorAll('#formTab input,#formTab textarea').forEach(e=>{if(e.type!=='file')e.value=''});recipientSchools=[];renderRecipientSchools();photos=[];renderPhotos();if(marker){map.removeLayer(marker);marker=null}preview();$('deleteBtn').classList.add('hidden')}
 $('newBtn').onclick=newReport;
 $('localBtn').onclick=()=>{
   localStorage.setItem('laporanDraft',JSON.stringify({data:data(),photos}));
@@ -564,7 +589,8 @@ async function renderPdfFromReportData(pdf,d,ps,addPageBreak=false){
   const holder=document.createElement('div');holder.style.cssText='position:fixed;left:-10000px;top:0;width:794px;background:#fff;z-index:-1;';
   const oldReport=$('report');const temp=document.createElement('div');temp.className='report';holder.appendChild(temp);document.body.appendChild(holder);
   const docs=ps.length?`<div class="docs">${ps.map(p=>`<div class="doc"><img src="${p.data}"><div class="caption">${esc(p.caption||'Dokumentasi')}</div></div>`).join('')}</div>`:'<div class="muted">Belum ada foto.</div>';
-  temp.innerHTML=`<h1>LAPORAN KEGIATAN</h1><div class="school">${esc(d.schoolName||'NAMA SEKOLAH')}</div><div class="line"></div>
+  const recipients=d.recipientSchools?.length?`<h2>Ditujukan Kepada</h2><p>${d.recipientSchools.map(x=>'• '+esc(x)).join('<br>')}</p>`:'';
+  temp.innerHTML=`<h1>LAPORAN KEGIATAN</h1><div class="school">${esc(d.schoolName||'NAMA SEKOLAH')}</div><div class="line"></div>${recipients}
   <h2>A. Identitas Kegiatan</h2><table><tr><td>Nama Kegiatan</td><td>${esc(d.activityName||'-')}</td></tr><tr><td>Materi</td><td>${esc(d.activityMaterial||'-')}</td></tr><tr><td>Tanggal</td><td>${esc(dateID(d.activityDate))}</td></tr><tr><td>Waktu</td><td>${esc(timeID(d))}</td></tr><tr><td>Tempat</td><td>${esc(d.place||'-')}</td></tr><tr><td>Penanggung Jawab</td><td>${esc(d.personInCharge||'-')}</td></tr></table>
   <h2>B. Latar Belakang</h2><p>${esc(d.background||'-')}</p><h2>C. Tujuan Kegiatan</h2><p>${esc(d.objective||'-')}</p><h2>D. Alur Kegiatan</h2><p>${esc(d.flow||'-')}</p><h2>E. Materi Kegiatan</h2><p>${esc(d.material||'-')}</p><h2>F. Hasil dan Evaluasi</h2><p>${esc(d.evaluation||'-')}</p><h2>G. Dokumentasi</h2>${docs}
   <h2>Lokasi Kegiatan</h2><p>📍 ${esc(d.address||d.place||'-')}<br>Koordinat: ${esc(d.lat||'-')}, ${esc(d.lng||'-')}</p><h2>H. Penutup</h2><p>${esc(d.closing||'-')}</p><div class="sig">${esc(d.place||'................')}, ${esc(dateID(d.activityDate))}<br><br>Fasilitator PMR<div class="sigspace"></div><b><u>Fasilitator PMR</u></b></div>`;
@@ -577,24 +603,79 @@ async function pdf(){
   await renderPdfFromReportData(pdf,data(),photos,false);
   pdf.save((data().activityName||'laporan-kegiatan').replace(/[^\w-]+/g,'_')+'.pdf')
 }
-async function word(){
- if(!window.docx){alert('Library Word belum siap.');return}const d=data();await exportWordReports([{...d,photos}],'laporan-kegiatan');
+async function dataUrlToBytes(dataUrl){
+  const res=await fetch(dataUrl);
+  return new Uint8Array(await res.arrayBuffer());
+}
+function wordTextRuns(text,bold=false){
+  const {TextRun}=window.docx;
+  const lines=String(text??'-').split(/\n/);
+  const runs=[];
+  lines.forEach((line,i)=>{runs.push(new TextRun({text:line||' ',bold}));if(i<lines.length-1)runs.push(new TextRun({break:1}))});
+  return runs;
+}
+function wordParagraph(text='',opts={}){
+  const {Paragraph}=window.docx;
+  return new Paragraph({children:wordTextRuns(text,!!opts.bold),alignment:opts.alignment,spacing:{after:opts.after??120},pageBreakBefore:!!opts.pageBreakBefore});
+}
+function wordHeading(text,level=2,pageBreakBefore=false){
+  const {Paragraph,TextRun,AlignmentType}=window.docx;
+  return new Paragraph({children:[new TextRun({text,bold:true,size:level===1?30:24})],alignment:level===1?AlignmentType.CENTER:AlignmentType.LEFT,spacing:{before:level===1?0:220,after:100},pageBreakBefore});
+}
+async function wordPhotoParagraph(p){
+  const {Paragraph,TextRun,ImageRun,AlignmentType}=window.docx;
+  try{
+    const data=await dataUrlToBytes(p.data);
+    return new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80},children:[new ImageRun({data,width:430,height:285}),new TextRun({text:'\n'+(p.caption||'Dokumentasi'),size:18})]});
+  }catch(e){
+    console.warn('Foto Word gagal dimasukkan',e);
+    return wordParagraph('[Foto dokumentasi tidak dapat dimasukkan]',{alignment:AlignmentType.CENTER});
+  }
+}
+async function reportToWordChildren(d,index){
+  const {Paragraph,Table,TableRow,TableCell,WidthType,AlignmentType,TextRun}=window.docx;
+  const children=[];
+  children.push(wordHeading('LAPORAN KEGIATAN',1,index>0));
+  children.push(new Paragraph({children:[new TextRun({text:d.schoolName||'NAMA SEKOLAH',bold:true,size:28})],alignment:AlignmentType.CENTER,spacing:{after:160}}));
+  if(Array.isArray(d.recipientSchools)&&d.recipientSchools.length){
+    children.push(wordHeading('Ditujukan Kepada',2));
+    d.recipientSchools.forEach(x=>children.push(wordParagraph('• '+x,{after:50})));
+  }
+  children.push(wordHeading('A. IDENTITAS KEGIATAN',2));
+  const rows=[
+    ['Nama Kegiatan',d.activityName||'-'],['Materi',d.activityMaterial||'-'],['Penanggung Jawab',d.personInCharge||'-'],
+    ['Tanggal',dateID(d.activityDate)],['Waktu',timeID(d)],['Tempat',d.place||'-']
+  ];
+  children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rows.map(([a,b])=>new TableRow({children:[new TableCell({children:[wordParagraph(a,{bold:true,after:0})],width:{size:30,type:WidthType.PERCENTAGE}}),new TableCell({children:[wordParagraph(b,{after:0})],width:{size:70,type:WidthType.PERCENTAGE}})]}))}));
+  const sections=[['B. LATAR BELAKANG',d.background],['C. TUJUAN KEGIATAN',d.objective],['D. ALUR KEGIATAN',d.flow],['E. MATERI KEGIATAN',d.material],['F. HASIL DAN EVALUASI',d.evaluation]];
+  sections.forEach(([title,text])=>{children.push(wordHeading(title,2));children.push(wordParagraph(text||'-',{after:100}))});
+  children.push(wordHeading('G. DOKUMENTASI',2));
+  if(Array.isArray(d.photos)&&d.photos.length){for(const p of d.photos)children.push(await wordPhotoParagraph(p));}else children.push(wordParagraph('Belum ada foto.'));
+  children.push(wordHeading('H. LOKASI KEGIATAN',2));
+  children.push(wordParagraph('Alamat: '+(d.address||d.place||'-')+'\nKoordinat: '+(d.lat||'-')+', '+(d.lng||'-')));
+  children.push(wordHeading('I. PENUTUP',2));children.push(wordParagraph(d.closing||'-'));
+  children.push(new Paragraph({children:[new TextRun({text:(d.place||'................')+', '+dateID(d.activityDate)+'\n\n\nFasilitator PMR',bold:true,size:22})],alignment:AlignmentType.CENTER,spacing:{before:500}}));
+  return children;
 }
 async function exportWordReports(items,filename='laporan-terpilih'){
- const D=window.docx;if(!D)throw new Error('Library Word belum siap.');const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,WidthType,AlignmentType,ImageRun}=D,ch=[];
- items.forEach((d,index)=>{
-   if(index)ch.push(new Paragraph({pageBreakBefore:true}));
-   const title=t=>ch.push(new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:t,bold:true,size:26})]}));title('LAPORAN KEGIATAN');title(d.schoolName||'NAMA SEKOLAH');
-   ch.push(new Paragraph(''));
-   ch.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[['Nama Kegiatan',d.activityName],['Materi',d.activityMaterial],['Tanggal',dateID(d.activityDate)],['Waktu',timeID(d)],['Tempat',d.place],['Penanggung Jawab',d.personInCharge]].map(r=>new TableRow({children:r.map((v,i)=>new TableCell({children:[new Paragraph({children:[new TextRun({text:v||'-',bold:i===0})]})]}))}))}));
-   const sec=(t,v)=>{ch.push(new Paragraph({spacing:{before:250},children:[new TextRun({text:t,bold:true,size:22})]}));ch.push(new Paragraph(v||'-'))};sec('LATAR BELAKANG',d.background);sec('TUJUAN KEGIATAN',d.objective);sec('ALUR KEGIATAN',d.flow);sec('MATERI KEGIATAN',d.material);sec('HASIL DAN EVALUASI',d.evaluation);
-   ch.push(new Paragraph({children:[new TextRun({text:'DOKUMENTASI',bold:true,size:22})]}));
-   for(const p of (d.photos||[])){try{const b=Uint8Array.from(atob(p.data.split(',')[1]),c=>c.charCodeAt(0));ch.push(new Paragraph({alignment:AlignmentType.CENTER,children:[new ImageRun({data:b,transformation:{width:450,height:260},type:'jpg'})]}));ch.push(new Paragraph({alignment:AlignmentType.CENTER,text:p.caption||'Dokumentasi'}))}catch(e){}}
-   sec('LOKASI KEGIATAN',`Alamat: ${d.address||d.place||'-'}\nKoordinat: ${d.lat||'-'}, ${d.lng||'-'}`);sec('PENUTUP',d.closing);
-   ch.push(new Paragraph({alignment:AlignmentType.RIGHT,spacing:{before:500},children:[new TextRun({text:'Fasilitator PMR',bold:true})]}));
- });
- const doc=new Document({sections:[{children:ch}]}),blob=await Packer.toBlob(doc),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=filename.replace(/[^\w-]+/g,'_')+'.docx';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)
+  if(!Array.isArray(items)||!items.length){alert('Tidak ada laporan yang dipilih.');return}
+  if(!window.docx||!window.docx.Packer){throw new Error('Library Word belum siap. Pastikan koneksi internet aktif, lalu muat ulang halaman.')}
+  const {Document,Packer}=window.docx;
+  const children=[];
+  for(let i=0;i<items.length;i++) children.push(...await reportToWordChildren(items[i],i));
+  const doc=new Document({sections:[{properties:{page:{margin:{top:900,right:900,bottom:900,left:900}}},children}]});
+  const blob=await Packer.toBlob(doc);
+  const u=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=u;a.download=filename.replace(/[^\w-]+/g,'_')+'.docx';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),3000);
 }
+async function word(){
+  const d=data();
+  showLoading(true);
+  try{await exportWordReports([{...d,photos}],'laporan-kegiatan-'+(d.activityName||'laporan'));status('File Word berhasil dibuat.')}catch(e){console.error(e);alert('Word gagal: '+e.message)}finally{showLoading(false)}
+}
+
 async function getSelectedReports(){
  const ids=[...document.querySelectorAll('.report-check:checked')].map(x=>x.dataset.reportId);if(!ids.length){alert('Pilih minimal satu laporan terlebih dahulu.');return []}
  const mapById=new Map(reportCache.map(x=>[x.id,x]));const missing=ids.filter(id=>!mapById.has(id));
@@ -627,7 +708,7 @@ $('adminReload')?.addEventListener('click',async()=>{
   await loadList();
   status('Semua laporan Admin dimuat.');
 });
-$('exportAll').onclick=()=>{const rows=[['Nama Kegiatan','Sekolah','Tanggal','Status']];document.querySelectorAll('#reportRows tr').forEach(tr=>{const c=[...tr.querySelectorAll('td')];if(c.length>=5)rows.push([c[1].innerText,c[2].innerText,c[3].innerText,c[4].innerText])});const csv=rows.map(r=>r.map(v=>`"${v.replace(/"/g,'""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='daftar-laporan.csv';a.click()}
+$('exportAll').onclick=()=>{const rows=[['Nama Kegiatan','Sekolah','Ditujukan Kepada','Penanggung Jawab','Tanggal','Status']];reportCache.forEach(x=>rows.push([x.activityName||'-',x.schoolName||'-',(x.recipientSchools||[]).join('; '),x.personInCharge||'-',dateID(x.activityDate),x.status||'final']));const csv=rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='daftar-laporan.csv';document.body.appendChild(a);a.click();a.remove()}
 
 initMap();preview();
 firebaseReady=loadFirebase();
