@@ -171,6 +171,49 @@ function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt
 function data(){
  return {schoolName:$('schoolName').value.trim(),activityName:$('activityName').value.trim(),activityMaterial:$('activityMaterial').value.trim(),personInCharge:$('personInCharge').value.trim(),activityDate:$('activityDate').value,place:$('place').value.trim(),startTime:$('startTime').value,endTime:$('endTime').value,background:$('background').value,objective:$('objective').value,flow:$('flow').value,material:$('material').value,evaluation:$('evaluation').value,closing:$('closing').value,lat:$('lat').value,lng:$('lng').value,address:$('address').value.trim()}
 }
+function dateID(v){
+  if(!v)return '-';
+  const d=new Date(v+'T00:00:00');
+  if(Number.isNaN(d.getTime()))return v;
+  return d.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+}
+function timeID(d){
+  const a=d?.startTime||'',b=d?.endTime||'';
+  if(a&&b)return a+' - '+b;
+  return a||b||'-';
+}
+function setData(d={}){
+  const ids=['schoolName','activityName','activityMaterial','personInCharge','activityDate','place','startTime','endTime','background','objective','flow','material','evaluation','closing','lat','lng','address'];
+  ids.forEach(id=>{if($(id))$(id).value=d[id]??''});
+  if(map && d.lat && d.lng){
+    const lat=Number(d.lat),lng=Number(d.lng);
+    if(Number.isFinite(lat)&&Number.isFinite(lng))setMarker(lat,lng,d.address||'');
+  }
+}
+function renderPhotos(){
+  const box=$('photoList');
+  if(!box)return;
+  if(!photos.length){box.innerHTML='<div class="muted">Belum ada foto.</div>';return}
+  box.innerHTML=photos.map((p,i)=>`<div class="photo"><img src="${p.data}" alt="Dokumentasi ${i+1}"><input value="${esc(p.caption||'')}" placeholder="Keterangan foto"><div class="actions"><button type="button" class="gray" data-photo-del="${i}">Hapus</button></div></div>`).join('');
+  box.querySelectorAll('[data-photo-del]').forEach(b=>b.onclick=()=>{photos.splice(Number(b.dataset.photoDel),1);renderPhotos();preview()});
+  box.querySelectorAll('input').forEach((el,i)=>el.oninput=()=>{if(photos[i])photos[i].caption=el.value;preview()});
+}
+async function compress(file){
+  const maxW=1400,maxH=1400,targetKB=120;
+  const bitmap=await createImageBitmap(file);
+  const ratio=Math.min(1,maxW/bitmap.width,maxH/bitmap.height);
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(bitmap.width*ratio));
+  canvas.height=Math.max(1,Math.round(bitmap.height*ratio));
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+  bitmap.close?.();
+  let quality=.82,dataUrl=canvas.toDataURL('image/jpeg',quality);
+  while(dataUrl.length/1024>targetKB && quality>.45){quality-=.06;dataUrl=canvas.toDataURL('image/jpeg',quality)}
+  return {data:dataUrl,caption:'Dokumentasi',sizeKB:Math.round(dataUrl.length/1024)};
+}
+
 $('photos').onchange=async e=>{
   const files=[...e.target.files];
   if(photos.length+files.length>3){
@@ -632,10 +675,14 @@ async function downloadBlob(blob,filename){
   if(!blob||blob.size===0)throw new Error('File Word kosong.');
   const arrayBuffer=await blob.arrayBuffer();
   const docxBlob=new Blob([arrayBuffer],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  let safe=String(filename||'laporan-kegiatan').replace(/[^\w.-]+/g,'_');
+  if(!/\.docx$/i.test(safe))safe+='.docx';
+  if(window.navigator?.msSaveOrOpenBlob){window.navigator.msSaveOrOpenBlob(docxBlob,safe);return}
   const u=URL.createObjectURL(docxBlob),a=document.createElement('a');
-  a.href=u;a.download=filename.replace(/[^\w.-]+/g,'_');a.style.display='none';
-  document.body.appendChild(a);a.click();
-  setTimeout(()=>{a.remove();URL.revokeObjectURL(u)},5000);
+  a.href=u;a.download=safe;a.rel='noopener';a.style.display='none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{a.remove();URL.revokeObjectURL(u)},10000);
 }
 async function exportWordReports(items,filename='laporan-terpilih'){
   if(!Array.isArray(items)||!items.length){alert('Tidak ada laporan yang dipilih.');return}
@@ -647,9 +694,9 @@ async function exportWordReports(items,filename='laporan-terpilih'){
     const item={...items[i],photos:Array.isArray(items[i].photos)?items[i].photos:[]};
     children.push(...await reportToWordChildren(item,i));
   }
-  const doc=new Document({creator:'Sistem Laporan Kegiatan Sekolah',title:'Laporan Kegiatan',subject:'Laporan Kegiatan Sekolah',description:'Dokumen laporan kegiatan sekolah dalam format DOCX',sections:[{properties:{page:{margin:{top:900,right:900,bottom:900,left:900}}},children}]});
+  const doc=new Document({creator:'Sistem Laporan Kegiatan Sekolah',title:'Laporan Kegiatan',subject:'Laporan Kegiatan Sekolah',description:'Dokumen laporan kegiatan sekolah dalam format DOCX/Office Open XML',sections:[{properties:{page:{margin:{top:900,right:900,bottom:900,left:900}}},children}]});
   const blob=await Packer.toBlob(doc);
-  await downloadBlob(blob,filename+'.docx');
+  await downloadBlob(blob,filename);
 }
 async function word(){
   const d=data();
